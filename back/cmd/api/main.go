@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"esports-backend/internal/config"
@@ -17,6 +18,8 @@ import (
 
 	"github.com/go-playground/validator/v10"
 )
+
+var phoneRuRegex = regexp.MustCompile(`^(\+7|8)\d{10}$`)
 
 type disabledSheetsClient struct{}
 
@@ -70,8 +73,13 @@ func main() {
 	auditService := service.NewAuditService(tournamentService, auditRepo)
 	adminService := service.NewAdminService(userRepo, tournamentRepo)
 
+	validate := validator.New()
+	_ = validate.RegisterValidation("phone_ru", func(fl validator.FieldLevel) bool {
+		return phoneRuRegex.MatchString(fl.Field().String())
+	})
+
 	deps := handler.Deps{
-		Validate:      validator.New(),
+		Validate:      validate,
 		Auth:          authService,
 		Users:         userService,
 		Tournaments:   tournamentService,

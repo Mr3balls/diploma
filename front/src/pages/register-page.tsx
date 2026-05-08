@@ -62,10 +62,12 @@ export function RegisterPage() {
         </FormField>
         <div className="grid gap-4 md:grid-cols-2">
           <FormField label="Email" error={errors.email?.message}>
-            <Input {...register("email")} type="email" />
+            <Input {...register("email")} type="email" placeholder="example@mail.com" />
+            <p className="text-xs text-slate-500 mt-1">Обязательно содержит символ @</p>
           </FormField>
           <FormField label="Телефон" error={errors.phone?.message}>
-            <Input {...register("phone")} />
+            <Input {...register("phone")} placeholder="+71234567890" />
+            <p className="text-xs text-slate-500 mt-1">Формат: +7XXXXXXXXXX или 8XXXXXXXXXX</p>
           </FormField>
         </div>
         <FormField label="Пароль" error={errors.password?.message}>
