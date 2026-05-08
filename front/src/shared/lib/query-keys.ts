@@ -1,0 +1,18 @@
+export const queryKeys = {
+  me: ["me"] as const,
+  unreadNotifications: ["notifications", "unread-count"] as const,
+  notifications: ["notifications"] as const,
+  tournaments: ["tournaments"] as const,
+  tournament: (id: string) => ["tournaments", id] as const,
+  tournamentTeams: (id: string) => ["tournaments", id, "teams"] as const,
+  tournamentAdminTeams: (id: string) => ["tournaments", id, "admin", "teams"] as const,
+  tournamentBracket: (id: string) => ["tournaments", id, "bracket"] as const,
+  tournamentMatches: (id: string) => ["tournaments", id, "matches"] as const,
+  tournamentAdminMatches: (id: string) => ["tournaments", id, "admin", "matches"] as const,
+  tournamentAudit: (id: string) => ["tournaments", id, "audit"] as const,
+  tournamentImports: (id: string) => ["tournaments", id, "imports"] as const,
+  importBatch: (batchId: string) => ["imports", batchId] as const,
+  team: (id: string) => ["teams", id] as const,
+  adminUsers: ["admin", "users"] as const,
+  adminTournaments: ["admin", "tournaments"] as const,
+};

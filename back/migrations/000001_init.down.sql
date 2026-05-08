@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS matches;
+DROP TABLE IF EXISTS brackets;
+DROP TABLE IF EXISTS team_members;
+DROP TABLE IF EXISTS teams;
+DROP TABLE IF EXISTS import_rows;
+DROP TABLE IF EXISTS import_batches;
+DROP TABLE IF EXISTS google_sheet_links;
+DROP TABLE IF EXISTS tournament_user_roles;
+DROP TABLE IF EXISTS tournaments;
+DROP TABLE IF EXISTS auth_sessions;
+DROP TABLE IF EXISTS user_platform_roles;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS platform_roles;
+DROP EXTENSION IF EXISTS pgcrypto;
