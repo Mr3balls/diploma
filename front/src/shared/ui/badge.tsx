@@ -4,11 +4,11 @@ import { cn } from "@/shared/lib/cn";
 type BadgeTone = "default" | "success" | "warning" | "danger" | "muted";
 
 const toneClassMap: Record<BadgeTone, string> = {
-  default: "bg-slate-100 text-slate-800",
-  success: "bg-emerald-100 text-emerald-800",
-  warning: "bg-amber-100 text-amber-800",
-  danger: "bg-red-100 text-red-800",
-  muted: "bg-slate-50 text-slate-600",
+  default: "bg-[#002366] text-white",
+  success: "bg-emerald-900 text-emerald-300",
+  warning: "bg-amber-900 text-amber-300",
+  danger: "bg-red-900 text-red-300",
+  muted: "bg-[#001f52] text-[#90afd4]",
 };
 
 export function Badge({

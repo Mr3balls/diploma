@@ -35,7 +35,7 @@ export function ImportHistoryTable({
         <TableBody>
           {items.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="font-medium text-slate-900">{item.id}</TableCell>
+              <TableCell className="font-medium text-white">{item.id}</TableCell>
               <TableCell>
                 <Badge tone={tone(item.status)}>{importBatchStatusLabel[item.status]}</Badge>
               </TableCell>

@@ -28,7 +28,7 @@ export function TeamDetailsCard({
           <CardTitle>{data.team.name}</CardTitle>
           <Badge tone={tone(data.team.status)}>{teamStatusLabel[data.team.status]}</Badge>
         </div>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-[#90afd4]">
           Команда становится готовой к проверке только если капитан подтверждён и подтверждено не менее 4 основных
           игроков.
         </p>
@@ -47,7 +47,7 @@ export function TeamDetailsCard({
             <TableBody>
               {data.members.map((member) => (
                 <TableRow key={member.id}>
-                  <TableCell className="font-medium text-slate-900">
+                  <TableCell className="font-medium text-white">
                     {member.nickname || member.display_name || "—"}
                   </TableCell>
                   <TableCell>{member.role}</TableCell>

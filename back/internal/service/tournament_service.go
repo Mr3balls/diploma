@@ -30,6 +30,8 @@ type CreateTournamentInput struct {
 	Rules                *string
 	Location             *string
 	MaxTeams             int
+	Format               string
+	GroupCount           *int
 	RegistrationDeadline *time.Time
 	StartAt              *time.Time
 	Visibility           string
@@ -68,6 +70,8 @@ func (s *TournamentService) Create(ctx context.Context, ownerUserID string, in C
 		Rules:                in.Rules,
 		Location:             in.Location,
 		MaxTeams:             in.MaxTeams,
+		Format:               in.Format,
+		GroupCount:           in.GroupCount,
 		Status:               entity.TournamentStatusDraft,
 		Visibility:           in.Visibility,
 		OwnerUserID:          ownerUserID,

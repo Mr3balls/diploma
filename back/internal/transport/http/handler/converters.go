@@ -21,6 +21,8 @@ func toCreateTournamentInput(t *entity.Tournament) service.CreateTournamentInput
 		Rules:                t.Rules,
 		Location:             t.Location,
 		MaxTeams:             t.MaxTeams,
+		Format:               t.Format,
+		GroupCount:           t.GroupCount,
 		RegistrationDeadline: t.RegistrationDeadline,
 		StartAt:              t.StartAt,
 		Visibility:           t.Visibility,

@@ -6,7 +6,7 @@ import { formatDateTime } from "@/shared/lib/date";
 
 function winnerClass(match: Match, side: "home" | "away") {
   const teamId = side === "home" ? match.home_team_id || match.home_team?.id : match.away_team_id || match.away_team?.id;
-  return match.winner_team_id && match.winner_team_id === teamId ? "font-semibold text-slate-900" : "text-slate-600";
+  return match.winner_team_id && match.winner_team_id === teamId ? "font-semibold text-white" : "text-[#90afd4]";
 }
 
 export function BracketView({ matches, adminMode = false }: { matches: Match[]; adminMode?: boolean }) {
@@ -15,7 +15,7 @@ export function BracketView({ matches, adminMode = false }: { matches: Match[]; 
   if (!rounds.length) {
     return (
       <Card>
-        <CardContent className="py-8 text-sm text-slate-500">
+        <CardContent className="py-8 text-sm text-[#90afd4]">
           Сетка пока не создана.
         </CardContent>
       </Card>
@@ -38,12 +38,12 @@ export function BracketView({ matches, adminMode = false }: { matches: Match[]; 
                     <CardTitle className="text-sm">Матч #{match.slot_index ?? "—"}</CardTitle>
                     {match.is_bye ? <Badge tone="warning">BYE</Badge> : null}
                   </div>
-                  <p className="text-xs text-slate-500">{formatDateTime(match.scheduled_at)}</p>
+                  <p className="text-xs text-[#90afd4]">{formatDateTime(match.scheduled_at)}</p>
                 </CardHeader>
                 <CardContent className="grid gap-3">
                   <div className={winnerClass(match, "home")}>{pickTeamName(match, "home")}</div>
                   <div className={winnerClass(match, "away")}>{pickTeamName(match, "away")}</div>
-                  <div className="flex items-center justify-between text-xs text-slate-500">
+                  <div className="flex items-center justify-between text-xs text-[#90afd4]">
                     <span>{match.status}</span>
                     <span>{match.score_text || "Без счёта"}</span>
                   </div>

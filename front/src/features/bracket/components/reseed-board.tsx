@@ -29,15 +29,15 @@ function SortableRow({ item }: { item: SeedItem }) {
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className="flex items-center justify-between rounded-xl border bg-white px-4 py-3"
+      className="flex items-center justify-between rounded-xl border border-[#0a3575] bg-[#002366] px-4 py-3"
     >
       <div className="flex items-center gap-3">
-        <button type="button" className="cursor-grab text-slate-400" {...attributes} {...listeners}>
+        <button type="button" className="cursor-grab text-[#90afd4]" {...attributes} {...listeners}>
           <GripVertical className="h-4 w-4" />
         </button>
-        <span className="text-sm font-medium text-slate-800">{item.label}</span>
+        <span className="text-sm font-medium text-white">{item.label}</span>
       </div>
-      <span className="text-xs text-slate-400">{item.id}</span>
+      <span className="text-xs text-[#90afd4]">{item.id}</span>
     </div>
   );
 }
@@ -69,7 +69,7 @@ export function ReseedBoard({
   return (
     <Card>
       <CardContent className="grid gap-4 pt-5">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-[#90afd4]">
           Перестановка доступна только до перехода турнира в статус <b>in_progress</b>.
         </p>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

@@ -40,7 +40,7 @@ export function ResetPasswordPage() {
     <div className="grid gap-6 p-6 md:p-8">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold">Сброс пароля</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-[#90afd4]">
           Страница подключена к demo stub backend endpoint. Здесь нет выдуманной почтовой логики.
         </p>
       </div>

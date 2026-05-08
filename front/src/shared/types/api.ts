@@ -8,6 +8,7 @@ export type TournamentStatus =
   | "cancelled";
 
 export type TournamentVisibility = "public" | "private";
+export type TournamentFormat = "single_elimination" | "double_elimination" | "group_stage";
 
 export type TeamStatus =
   | "pending"
@@ -105,9 +106,11 @@ export type Tournament = {
   rules?: string;
   location?: string;
   max_teams: number;
+  format: TournamentFormat;
+  group_count?: number | null;
   registration_deadline?: string;
   start_at?: string;
-  status: string;
+  status: TournamentStatus;
   visibility: "public" | "private";
   owner_user_id: string;
   created_at: string;

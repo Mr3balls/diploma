@@ -19,18 +19,18 @@ func NewTournamentRepository(db Queryer) *TournamentRepository {
 
 func (r *TournamentRepository) Create(ctx context.Context, t *entity.Tournament) error {
 	_, err := r.db.Exec(ctx, `
-        INSERT INTO tournaments (id, title, discipline, description, rules, location, max_teams, registration_deadline, start_at, status, visibility, owner_user_id)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.RegistrationDeadline, t.StartAt, t.Status, t.Visibility, t.OwnerUserID)
+        INSERT INTO tournaments (id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, owner_user_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.Format, t.GroupCount, t.RegistrationDeadline, t.StartAt, t.Status, t.Visibility, t.OwnerUserID)
 	return err
 }
 
 func (r *TournamentRepository) Update(ctx context.Context, t *entity.Tournament) error {
 	_, err := r.db.Exec(ctx, `
         UPDATE tournaments
-        SET title=$2, discipline=$3, description=$4, rules=$5, location=$6, max_teams=$7, registration_deadline=$8, start_at=$9, visibility=$10, updated_at=now()
+        SET title=$2, discipline=$3, description=$4, rules=$5, location=$6, max_teams=$7, format=$8, group_count=$9, registration_deadline=$10, start_at=$11, visibility=$12, updated_at=now()
         WHERE id=$1 AND deleted_at IS NULL
-    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.RegistrationDeadline, t.StartAt, t.Visibility)
+    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.Format, t.GroupCount, t.RegistrationDeadline, t.StartAt, t.Visibility)
 	return err
 }
 
@@ -46,12 +46,12 @@ func (r *TournamentRepository) SoftDelete(ctx context.Context, id string) error 
 
 func (r *TournamentRepository) GetByID(ctx context.Context, id string) (*entity.Tournament, error) {
 	row := r.db.QueryRow(ctx, `
-        SELECT id, title, discipline, description, rules, location, max_teams, registration_deadline, start_at, status, visibility, owner_user_id, created_at, updated_at, deleted_at
+        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, owner_user_id, created_at, updated_at, deleted_at
         FROM tournaments
         WHERE id=$1 AND deleted_at IS NULL
     `, id)
 	var t entity.Tournament
-	err := row.Scan(&t.ID, &t.Title, &t.Discipline, &t.Description, &t.Rules, &t.Location, &t.MaxTeams, &t.RegistrationDeadline, &t.StartAt, &t.Status, &t.Visibility, &t.OwnerUserID, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt)
+	err := row.Scan(&t.ID, &t.Title, &t.Discipline, &t.Description, &t.Rules, &t.Location, &t.MaxTeams, &t.Format, &t.GroupCount, &t.RegistrationDeadline, &t.StartAt, &t.Status, &t.Visibility, &t.OwnerUserID, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, pgx.ErrNoRows
@@ -63,7 +63,7 @@ func (r *TournamentRepository) GetByID(ctx context.Context, id string) (*entity.
 
 func (r *TournamentRepository) ListPublic(ctx context.Context, limit, offset int) ([]entity.Tournament, error) {
 	rows, err := r.db.Query(ctx, `
-        SELECT id, title, discipline, description, rules, location, max_teams, registration_deadline, start_at, status, visibility, owner_user_id, created_at, updated_at, deleted_at
+        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, owner_user_id, created_at, updated_at, deleted_at
         FROM tournaments
         WHERE deleted_at IS NULL AND visibility='public'
         ORDER BY created_at DESC
@@ -77,7 +77,7 @@ func (r *TournamentRepository) ListPublic(ctx context.Context, limit, offset int
 	result := make([]entity.Tournament, 0)
 	for rows.Next() {
 		var t entity.Tournament
-		if err := rows.Scan(&t.ID, &t.Title, &t.Discipline, &t.Description, &t.Rules, &t.Location, &t.MaxTeams, &t.RegistrationDeadline, &t.StartAt, &t.Status, &t.Visibility, &t.OwnerUserID, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.Title, &t.Discipline, &t.Description, &t.Rules, &t.Location, &t.MaxTeams, &t.Format, &t.GroupCount, &t.RegistrationDeadline, &t.StartAt, &t.Status, &t.Visibility, &t.OwnerUserID, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, t)
@@ -87,7 +87,7 @@ func (r *TournamentRepository) ListPublic(ctx context.Context, limit, offset int
 
 func (r *TournamentRepository) ListAll(ctx context.Context, limit, offset int) ([]entity.Tournament, error) {
 	rows, err := r.db.Query(ctx, `
-        SELECT id, title, discipline, description, rules, location, max_teams, registration_deadline, start_at, status, visibility, owner_user_id, created_at, updated_at, deleted_at
+        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, owner_user_id, created_at, updated_at, deleted_at
         FROM tournaments
         WHERE deleted_at IS NULL
         ORDER BY created_at DESC
@@ -101,7 +101,7 @@ func (r *TournamentRepository) ListAll(ctx context.Context, limit, offset int) (
 	result := make([]entity.Tournament, 0)
 	for rows.Next() {
 		var t entity.Tournament
-		if err := rows.Scan(&t.ID, &t.Title, &t.Discipline, &t.Description, &t.Rules, &t.Location, &t.MaxTeams, &t.RegistrationDeadline, &t.StartAt, &t.Status, &t.Visibility, &t.OwnerUserID, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.Title, &t.Discipline, &t.Description, &t.Rules, &t.Location, &t.MaxTeams, &t.Format, &t.GroupCount, &t.RegistrationDeadline, &t.StartAt, &t.Status, &t.Visibility, &t.OwnerUserID, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, t)

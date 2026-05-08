@@ -41,7 +41,7 @@ export function LoginPage() {
     <div className="grid gap-6 p-6 md:p-8">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold">Вход</h1>
-        <p className="text-sm text-slate-500">Используйте email и пароль вашей учётной записи.</p>
+        <p className="text-sm text-[#90afd4]">Используйте email и пароль вашей учётной записи.</p>
       </div>
 
       <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>

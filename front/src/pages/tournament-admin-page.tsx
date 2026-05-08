@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -474,7 +474,7 @@ export function TournamentAdminPage() {
               title: tournament.title,
               description: tournament.description ?? "",
               rules: tournament.rules ?? "",
-              game: tournament.game ?? "",
+              discipline: tournament.discipline ?? "",
               max_teams: tournament.max_teams ?? 8,
               visibility: tournament.visibility,
             }}
@@ -518,7 +518,7 @@ export function TournamentAdminPage() {
             }
           />
           {validateSheetMutation.data ? (
-            <div className="rounded-2xl border bg-slate-50 p-4 text-sm text-slate-600">
+            <div className="rounded-2xl border border-[#0a3575] bg-[#002366] p-4 text-sm text-[#90afd4]">
               <div>Spreadsheet ID: {validateSheetMutation.data.spreadsheet_id}</div>
               <div>Worksheet: {validateSheetMutation.data.worksheet_name}</div>
               <div>Rows: {validateSheetMutation.data.row_count}</div>
@@ -652,8 +652,8 @@ export function TournamentAdminPage() {
           )}
 
           {activeMatch ? (
-            <div className="rounded-2xl border bg-slate-50 p-4">
-              <div className="mb-4 text-sm font-medium text-slate-900">
+            <div className="rounded-2xl border border-[#0a3575] bg-[#002366] p-4">
+              <div className="mb-4 text-sm font-medium text-white">
                 Активный матч: {activeMatch.id}
               </div>
               {matchAction === "schedule" ? (

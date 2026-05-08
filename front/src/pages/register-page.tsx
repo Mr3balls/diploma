@@ -45,7 +45,7 @@ export function RegisterPage() {
     <div className="grid gap-6 p-6 md:p-8">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold">Регистрация</h1>
-        <p className="text-sm text-slate-500">После регистрации пользователь сможет создавать турниры и участвовать в них.</p>
+        <p className="text-sm text-[#90afd4]">После регистрации пользователь сможет создавать турниры и участвовать в них.</p>
       </div>
 
       <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
@@ -63,11 +63,11 @@ export function RegisterPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <FormField label="Email" error={errors.email?.message}>
             <Input {...register("email")} type="email" placeholder="example@mail.com" />
-            <p className="text-xs text-slate-500 mt-1">Обязательно содержит символ @</p>
+            <p className="text-xs text-[#90afd4] mt-1">Обязательно содержит символ @</p>
           </FormField>
           <FormField label="Телефон" error={errors.phone?.message}>
             <Input {...register("phone")} placeholder="+71234567890" />
-            <p className="text-xs text-slate-500 mt-1">Формат: +7XXXXXXXXXX или 8XXXXXXXXXX</p>
+            <p className="text-xs text-[#90afd4] mt-1">Формат: +7XXXXXXXXXX или 8XXXXXXXXXX</p>
           </FormField>
         </div>
         <FormField label="Пароль" error={errors.password?.message}>

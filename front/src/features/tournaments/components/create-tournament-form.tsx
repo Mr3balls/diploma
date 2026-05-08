@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   tournamentFormSchema,
@@ -42,14 +42,17 @@ export function CreateTournamentForm({
       rules: defaultValues?.rules ?? "",
       location: defaultValues?.location ?? "",
       max_teams: defaultValues?.max_teams ?? 8,
+      format: (defaultValues?.format as TournamentFormValues["format"]) ?? "single_elimination",
+      group_count: defaultValues?.group_count ?? undefined,
       registration_deadline: toDateTimeLocal(defaultValues?.registration_deadline),
       start_at: toDateTimeLocal(defaultValues?.start_at),
       visibility: defaultValues?.visibility ?? "public",
     },
   });
 
-  const { register, handleSubmit, formState } = form;
+  const { register, handleSubmit, formState, control } = form;
   const { errors } = formState;
+  const selectedFormat = useWatch({ control, name: "format" });
 
   return (
     <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
@@ -72,11 +75,11 @@ export function CreateTournamentForm({
       </FormField>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <FormField label="Максимум команд" error={errors.max_teams?.message}>
+        <FormField label="Максимум команд" error={errors.max_teams?.message} hint="От 2 до 16">
           <Input
             type="number"
             min={2}
-            max={128}
+            max={16}
             {...register("max_teams", { valueAsNumber: true })}
           />
         </FormField>
@@ -87,6 +90,27 @@ export function CreateTournamentForm({
             <option value="private">Приватный</option>
           </Select>
         </FormField>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <FormField label="Формат сетки" error={errors.format?.message}>
+          <Select {...register("format")}>
+            <option value="single_elimination">Single Elimination</option>
+            <option value="double_elimination">Double Elimination</option>
+            <option value="group_stage">Групповой этап + Плей-офф</option>
+          </Select>
+        </FormField>
+
+        {selectedFormat === "group_stage" && (
+          <FormField label="Количество групп" error={errors.group_count?.message}>
+            <Select {...register("group_count", { valueAsNumber: true })}>
+              <option value="">— выберите —</option>
+              <option value="2">2 группы (по 4 команды)</option>
+              <option value="3">3 группы (по 4 команды)</option>
+              <option value="4">4 группы (по 4 команды)</option>
+            </Select>
+          </FormField>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

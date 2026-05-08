@@ -32,8 +32,8 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
           <CardTitle>{tournament.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="line-clamp-3 text-sm text-slate-600">{tournament.description || "Описание не заполнено."}</p>
-          <div className="grid gap-2 text-sm text-slate-500">
+          <p className="line-clamp-3 text-sm text-[#90afd4]">{tournament.description || "Описание не заполнено."}</p>
+          <div className="grid gap-2 text-sm text-[#90afd4]">
             <div>Игра: {tournament.game || "—"}</div>
             <div>Макс. команд: {tournament.max_teams ?? "—"}</div>
             <div>Создан: {formatDate(tournament.created_at)}</div>

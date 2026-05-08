@@ -51,10 +51,10 @@ export function MatchesTable({
           {matches.map((match) => (
             <TableRow key={match.id}>
               <TableCell>
-                <div className="font-medium text-slate-900">
+                <div className="font-medium text-white">
                   {pickTeamName(match, "home")} vs {pickTeamName(match, "away")}
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-[#90afd4]">
                   Раунд {match.round_number ?? "—"} · Слот {match.slot_index ?? "—"}
                 </div>
               </TableCell>

@@ -10,6 +10,8 @@ type Tournament struct {
 	Rules                *string    `json:"rules,omitempty"`
 	Location             *string    `json:"location,omitempty"`
 	MaxTeams             int        `json:"max_teams"`
+	Format               string     `json:"format"`
+	GroupCount           *int       `json:"group_count,omitempty"`
 	RegistrationDeadline *time.Time `json:"registration_deadline,omitempty"`
 	StartAt              *time.Time `json:"start_at,omitempty"`
 	Status               string     `json:"status"`

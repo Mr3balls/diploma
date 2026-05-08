@@ -76,8 +76,8 @@ export function TournamentDetailsPage() {
       />
 
       <Card>
-        <CardContent className="flex flex-wrap gap-4 pt-5 text-sm text-slate-600">
-          <div>Игра: {tournament.game || "—"}</div>
+        <CardContent className="flex flex-wrap gap-4 pt-5 text-sm text-[#90afd4]">
+          <div>Игра: {tournament.discipline || "—"}</div>
           <div>Макс. команд: {tournament.max_teams ?? "—"}</div>
           <div>Создан: {formatDateTime(tournament.created_at)}</div>
           <div>Owner user_id: {tournament.owner_user_id || "—"}</div>
@@ -93,7 +93,7 @@ export function TournamentDetailsPage() {
             <CardHeader>
               <CardTitle>Кратко</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm text-slate-600">
+            <CardContent className="space-y-2 text-sm text-[#90afd4]">
               <div>Статус: {tournamentStatusLabel[tournament.status]}</div>
               <div>Видимость: {visibilityLabel[tournament.visibility]}</div>
               <div>Google Sheets импорт, сетка и матчи доступны из отдельной admin-страницы.</div>
@@ -103,7 +103,7 @@ export function TournamentDetailsPage() {
             <CardHeader>
               <CardTitle>Бизнес-правила</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm text-slate-600">
+            <CardContent className="space-y-2 text-sm text-[#90afd4]">
               <div>Команда готова к проверке после подтверждения капитана и минимум 4 основных игроков.</div>
               <div>Менеджер подтверждает финальный результат матча.</div>
               <div>Публичная сетка — только для просмотра.</div>
@@ -152,13 +152,13 @@ export function TournamentDetailsPage() {
             <CardHeader>
               <CardTitle>Правила</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-slate-600">{tournament.rules || "Не заполнено"}</CardContent>
+            <CardContent className="text-sm text-[#90afd4]">{tournament.rules || "Не заполнено"}</CardContent>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle>Доп. информация</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-slate-600">{tournament.info || "Не заполнено"}</CardContent>
+            <CardContent className="text-sm text-[#90afd4]">{tournament.location || "Не заполнено"}</CardContent>
           </Card>
         </div>
       ) : null}
@@ -202,7 +202,7 @@ export function TournamentDetailsPage() {
         access.canAccessAdmin ? (
           <Card>
             <CardContent className="flex items-center justify-between gap-4 pt-5">
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-[#90afd4]">
                 Для управления турниром используйте отдельную admin-страницу.
               </div>
               <Link to={`/tournaments/${id}/admin`}>

@@ -18,7 +18,7 @@ export function Tabs({
           onClick={() => onValueChange(tab.value)}
           className={cn(
             "rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
-            value === tab.value ? "border-slate-900 bg-slate-900 text-white" : "border-border bg-white text-slate-700 hover:bg-slate-50",
+            value === tab.value ? "border-[#2255ff] bg-[#2255ff] text-white" : "border-border bg-[#001f52] text-[#90afd4] hover:bg-[#002366]",
           )}
         >
           {tab.label}

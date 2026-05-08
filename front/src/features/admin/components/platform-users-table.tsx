@@ -28,7 +28,7 @@ export function PlatformUsersTable({
         <TableBody>
           {users.map((user) => (
             <TableRow key={user.id}>
-              <TableCell className="font-medium text-slate-900">{user.id}</TableCell>
+              <TableCell className="font-medium text-white">{user.id}</TableCell>
               <TableCell>{user.email}</TableCell>
               <TableCell>{user.nickname || "—"}</TableCell>
               <TableCell>{user.role || "player"}</TableCell>

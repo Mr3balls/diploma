@@ -6,6 +6,7 @@ import type {
   MemberConfirmationStatus,
   NotificationType,
   TeamStatus,
+  TournamentFormat,
   TournamentStatus,
   TournamentVisibility,
 } from "@/shared/types/api";
@@ -23,6 +24,12 @@ export const tournamentStatusLabel: Record<TournamentStatus, string> = {
 export const visibilityLabel: Record<TournamentVisibility, string> = {
   public: "Публичный",
   private: "Приватный",
+};
+
+export const tournamentFormatLabel: Record<TournamentFormat, string> = {
+  single_elimination: "Single Elimination",
+  double_elimination: "Double Elimination",
+  group_stage: "Групповой этап + Плей-офф",
 };
 
 export const teamStatusLabel: Record<TeamStatus, string> = {

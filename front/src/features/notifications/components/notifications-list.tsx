@@ -26,7 +26,7 @@ export function NotificationsList({
                   <CardTitle className="text-base">{notification.title || notificationTypeLabel[notification.type]}</CardTitle>
                   {!notification.is_read ? <Badge>Новое</Badge> : null}
                 </div>
-                <p className="text-xs text-slate-500">{formatDateTime(notification.created_at)}</p>
+                <p className="text-xs text-[#90afd4]">{formatDateTime(notification.created_at)}</p>
               </div>
               <div className="flex gap-2">
                 {!notification.is_read ? (
@@ -38,7 +38,7 @@ export function NotificationsList({
             </div>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <p className="text-sm text-slate-700">{notification.message}</p>
+            <p className="text-sm text-[#90afd4]">{notification.message}</p>
             {renderActions ? <div className="flex flex-wrap gap-2">{renderActions(notification)}</div> : null}
           </CardContent>
         </Card>

@@ -22,9 +22,9 @@ export function ImportPreviewTable({
 }) {
   return (
     <div className="grid gap-4">
-      <div className="flex items-center justify-between gap-4 rounded-2xl border bg-slate-50 p-4">
-        <div className="text-sm text-slate-600">
-          Batch ID: <span className="font-medium text-slate-900">{preview.batch.id}</span>
+      <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#0a3575] bg-[#002366] p-4">
+        <div className="text-sm text-[#90afd4]">
+          Batch ID: <span className="font-medium text-white">{preview.batch.id}</span>
         </div>
         <Button onClick={() => onConfirm(preview.batch.id)} disabled={isConfirming}>
           Подтвердить импорт

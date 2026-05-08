@@ -11,11 +11,11 @@ export function FormField({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+    <label className="flex flex-col gap-2 text-sm font-medium text-white">
       <span>{label}</span>
       {children}
-      {hint ? <span className="text-xs font-normal text-slate-500">{hint}</span> : null}
-      {error ? <span className="text-xs font-normal text-red-600">{error}</span> : null}
+      {hint ? <span className="text-xs font-normal text-[#90afd4]">{hint}</span> : null}
+      {error ? <span className="text-xs font-normal text-red-400">{error}</span> : null}
     </label>
   );
 }

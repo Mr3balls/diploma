@@ -14,7 +14,7 @@ export function EmptyState({
     <Card>
       <CardContent className="flex flex-col items-start gap-3 py-8">
         <h3 className="text-base font-semibold">{title}</h3>
-        <p className="max-w-2xl text-sm text-slate-500">{description}</p>
+        <p className="max-w-2xl text-sm text-[#90afd4]">{description}</p>
         {action}
       </CardContent>
     </Card>

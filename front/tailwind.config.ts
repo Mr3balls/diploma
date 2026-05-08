@@ -6,34 +6,47 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        border: "#e5e7eb",
-        input: "#e5e7eb",
-        ring: "#111827",
-        background: "#f8fafc",
-        foreground: "#0f172a",
+        border: "#0a3575",
+        input: "#0a3575",
+        ring: "#2255ff",
+        background: "#001538",
+        foreground: "#ffffff",
         primary: {
-          DEFAULT: "#111827",
+          DEFAULT: "#2255ff",
           foreground: "#ffffff",
         },
         secondary: {
-          DEFAULT: "#f1f5f9",
-          foreground: "#0f172a",
+          DEFAULT: "#002366",
+          foreground: "#ffffff",
         },
         muted: {
-          DEFAULT: "#f8fafc",
-          foreground: "#475569",
+          DEFAULT: "#001f52",
+          foreground: "#90afd4",
         },
         accent: {
-          DEFAULT: "#eff6ff",
-          foreground: "#1d4ed8",
+          DEFAULT: "#002366",
+          foreground: "#90b8ff",
         },
         destructive: {
-          DEFAULT: "#dc2626",
+          DEFAULT: "#ef4444",
           foreground: "#ffffff",
         },
         card: {
-          DEFAULT: "#ffffff",
-          foreground: "#0f172a",
+          DEFAULT: "#001f52",
+          foreground: "#ffffff",
+        },
+        slate: {
+          50:  "#002a70",
+          100: "#002060",
+          200: "#001f52",
+          300: "#90b8e0",
+          400: "#7aa0cc",
+          500: "#6088b8",
+          600: "#4a70a0",
+          700: "#c0d8f0",
+          800: "#001538",
+          900: "#f0f5ff",
+          950: "#000e2a",
         },
       },
       borderRadius: {
@@ -42,7 +55,7 @@ const config: Config = {
         "2xl": "1.25rem",
       },
       boxShadow: {
-        soft: "0 10px 30px rgba(15, 23, 42, 0.06)",
+        soft: "0 10px 30px rgba(0, 0, 0, 0.4)",
       },
     },
   },

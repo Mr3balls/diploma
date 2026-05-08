@@ -40,7 +40,7 @@ export function TeamsTable({
         <TableBody>
           {teams.map((team) => (
             <TableRow key={team.id}>
-              <TableCell className="font-medium text-slate-900">{team.name}</TableCell>
+              <TableCell className="font-medium text-white">{team.name}</TableCell>
               <TableCell>
                 <Badge tone={tone(team.status)}>{teamStatusLabel[team.status]}</Badge>
               </TableCell>

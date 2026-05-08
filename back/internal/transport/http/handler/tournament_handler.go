@@ -21,7 +21,9 @@ type createTournamentRequest struct {
 	Description          *string `json:"description"`
 	Rules                *string `json:"rules"`
 	Location             *string `json:"location"`
-	MaxTeams             int     `json:"max_teams" validate:"required,min=2,max=1024"`
+	MaxTeams             int     `json:"max_teams" validate:"required,min=2,max=16"`
+	Format               string  `json:"format" validate:"omitempty,oneof=single_elimination double_elimination group_stage"`
+	GroupCount           *int    `json:"group_count"`
 	RegistrationDeadline *string `json:"registration_deadline"`
 	StartAt              *string `json:"start_at"`
 	Visibility           string  `json:"visibility" validate:"required,oneof=public private"`
@@ -113,7 +115,10 @@ func (h *TournamentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, apperror.BadRequest("invalid_datetime", "invalid start_at", nil))
 		return
 	}
-	tournament := &entity.Tournament{Title: req.Title, Discipline: req.Discipline, Description: req.Description, Rules: req.Rules, Location: req.Location, MaxTeams: req.MaxTeams, RegistrationDeadline: registrationDeadline, StartAt: startAt, Visibility: req.Visibility}
+	if req.Format == "" {
+		req.Format = "single_elimination"
+	}
+	tournament := &entity.Tournament{Title: req.Title, Discipline: req.Discipline, Description: req.Description, Rules: req.Rules, Location: req.Location, MaxTeams: req.MaxTeams, Format: req.Format, GroupCount: req.GroupCount, RegistrationDeadline: registrationDeadline, StartAt: startAt, Visibility: req.Visibility}
 	created, err := h.deps.Tournaments.Create(r.Context(), actorUserID, toCreateTournamentInput(tournament))
 	if err != nil {
 		writeError(w, err)
@@ -148,7 +153,10 @@ func (h *TournamentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, apperror.BadRequest("invalid_datetime", "invalid start_at", nil))
 		return
 	}
-	tournament := &entity.Tournament{ID: id, Title: req.Title, Discipline: req.Discipline, Description: req.Description, Rules: req.Rules, Location: req.Location, MaxTeams: req.MaxTeams, RegistrationDeadline: registrationDeadline, StartAt: startAt, Visibility: req.Visibility}
+	if req.Format == "" {
+		req.Format = "single_elimination"
+	}
+	tournament := &entity.Tournament{ID: id, Title: req.Title, Discipline: req.Discipline, Description: req.Description, Rules: req.Rules, Location: req.Location, MaxTeams: req.MaxTeams, Format: req.Format, GroupCount: req.GroupCount, RegistrationDeadline: registrationDeadline, StartAt: startAt, Visibility: req.Visibility}
 	updated, err := h.deps.Tournaments.Update(r.Context(), actorUserID, tournament)
 	if err != nil {
 		writeError(w, err)
