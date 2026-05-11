@@ -35,6 +35,7 @@ type CreateTournamentInput struct {
 	RegistrationDeadline *time.Time
 	StartAt              *time.Time
 	Visibility           string
+	RegistrationMode     string // "team" | "individual"
 }
 
 func (s *TournamentService) ListPublic(ctx context.Context, limit, offset int) ([]entity.Tournament, error) {
@@ -62,6 +63,10 @@ func (s *TournamentService) GetPublic(ctx context.Context, tournamentID, request
 }
 
 func (s *TournamentService) Create(ctx context.Context, ownerUserID string, in CreateTournamentInput) (*entity.Tournament, error) {
+	mode := in.RegistrationMode
+	if mode == "" {
+		mode = "team"
+	}
 	tournament := &entity.Tournament{
 		ID:                   uuid.NewString(),
 		Title:                in.Title,
@@ -77,6 +82,7 @@ func (s *TournamentService) Create(ctx context.Context, ownerUserID string, in C
 		OwnerUserID:          ownerUserID,
 		RegistrationDeadline: in.RegistrationDeadline,
 		StartAt:              in.StartAt,
+		RegistrationMode:     mode,
 	}
 
 	if err := s.tournaments.Create(ctx, tournament); err != nil {
@@ -191,6 +197,14 @@ func (s *TournamentService) CanReadTournament(ctx context.Context, tournamentID,
 		return false, err
 	}
 	return len(roles) > 0, nil
+}
+
+func (s *TournamentService) GetTournament(ctx context.Context, tournamentID string) (*entity.Tournament, error) {
+	t, err := s.tournaments.GetByID(ctx, tournamentID)
+	if err != nil {
+		return nil, apperror.NotFound("tournament not found")
+	}
+	return t, nil
 }
 
 func (s *TournamentService) ListTournamentTeams(ctx context.Context, tournamentID string, admin bool) ([]entity.Team, error) {

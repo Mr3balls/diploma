@@ -10,13 +10,16 @@ type Tournament struct {
 	Rules                *string    `json:"rules,omitempty"`
 	Location             *string    `json:"location,omitempty"`
 	MaxTeams             int        `json:"max_teams"`
+	MaxParticipants      int        `json:"max_participants"`
 	Format               string     `json:"format"`
 	GroupCount           *int       `json:"group_count,omitempty"`
 	RegistrationDeadline *time.Time `json:"registration_deadline,omitempty"`
 	StartAt              *time.Time `json:"start_at,omitempty"`
 	Status               string     `json:"status"`
 	Visibility           string     `json:"visibility"`
+	Slug                 *string    `json:"slug,omitempty"`
 	OwnerUserID          string     `json:"owner_user_id"`
+	RegistrationMode     string     `json:"registration_mode"` // "team" | "individual"
 	CreatedAt            time.Time  `json:"created_at"`
 	UpdatedAt            time.Time  `json:"updated_at"`
 	DeletedAt            *time.Time `json:"deleted_at,omitempty"`

@@ -13,7 +13,7 @@ type BracketHandler struct{ deps Deps }
 func NewBracketHandler(deps Deps) *BracketHandler { return &BracketHandler{deps: deps} }
 
 type reseedRequest struct {
-	OrderedTeamIDs []string `json:"ordered_team_ids" validate:"required,min=2,dive,uuid4"`
+	OrderedTeamIDs []string `json:"ordered_team_ids" validate:"required,min=2,dive,uuid"`
 }
 
 func (h *BracketHandler) Generate(w http.ResponseWriter, r *http.Request) {
@@ -64,4 +64,18 @@ func (h *BracketHandler) Reseed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{"bracket": bracket, "matches": matches})
+}
+
+func (h *BracketHandler) ResetMatch(w http.ResponseWriter, r *http.Request) {
+	actorUserID := mustUserID(r)
+	if actorUserID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	matchID := chi.URLParam(r, "id")
+	if err := h.deps.Brackets.ResetMatch(r.Context(), actorUserID, matchID); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
 }

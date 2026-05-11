@@ -12,13 +12,15 @@ import type {
 } from "@/shared/types/api";
 
 export const tournamentStatusLabel: Record<TournamentStatus, string> = {
-  draft: "Черновик",
+  draft: "Скоро открытие",
   registration_open: "Регистрация открыта",
   registration_closed: "Регистрация закрыта",
   bracket_generated: "Сетка создана",
-  in_progress: "В процессе",
+  in_progress: "Идёт",
   finished: "Завершён",
   cancelled: "Отменён",
+  ready: "Готов к старту",
+  completed: "Завершён",
 };
 
 export const visibilityLabel: Record<TournamentVisibility, string> = {

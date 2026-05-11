@@ -5,7 +5,9 @@ export type TournamentStatus =
   | "bracket_generated"
   | "in_progress"
   | "finished"
-  | "cancelled";
+  | "cancelled"
+  | "ready"
+  | "completed";
 
 export type TournamentVisibility = "public" | "private";
 export type TournamentFormat = "single_elimination" | "double_elimination" | "group_stage";
@@ -98,6 +100,8 @@ export type User = {
   updated_at?: string;
 };
 
+export type TournamentRegistrationMode = "team" | "individual";
+
 export type Tournament = {
   id: string;
   title: string;
@@ -112,6 +116,7 @@ export type Tournament = {
   start_at?: string;
   status: TournamentStatus;
   visibility: "public" | "private";
+  registration_mode?: TournamentRegistrationMode;
   owner_user_id: string;
   created_at: string;
   updated_at: string;
@@ -140,13 +145,17 @@ export type ImportBatch = {
 export type ImportRow = {
   id: string;
   batch_id?: string;
+  row_number?: number;
   status: ImportRowStatus;
   team_name?: string | null;
-  captain_nickname?: string | null;
   discipline?: string | null;
-  player_nicknames?: string[];
-  duplicate_conflicts?: string[];
-  validation_errors?: string[];
+  captain_nick?: string | null;
+  player_2_nick?: string | null;
+  player_3_nick?: string | null;
+  player_4_nick?: string | null;
+  player_5_nick?: string | null;
+  substitute_nick?: string | null;
+  validation_errors_json?: string[] | null;
 };
 
 export type TeamMember = {
@@ -182,20 +191,24 @@ export type Bracket = {
 export type Match = {
   id: string;
   tournament_id?: string;
+  bracket_id?: string;
+  bracket_section?: string;
   round_number?: number | null;
   slot_index?: number | null;
   status: MatchStatus;
-  home_team_id?: string | null;
-  away_team_id?: string | null;
-  home_team_name?: string | null;
-  away_team_name?: string | null;
-  home_team?: Team | null;
-  away_team?: Team | null;
-  home_team_confirmation_status?: MatchTeamConfirmationStatus | null;
-  away_team_confirmation_status?: MatchTeamConfirmationStatus | null;
+  team1_id?: string | null;
+  team2_id?: string | null;
+  participant1_id?: string | null;
+  participant2_id?: string | null;
+  winner_participant_id?: string | null;
+  team1_confirmation_status?: MatchTeamConfirmationStatus | null;
+  team2_confirmation_status?: MatchTeamConfirmationStatus | null;
   winner_team_id?: string | null;
   score_text?: string | null;
+  manager_comment?: string | null;
   scheduled_at?: string | null;
+  location_or_server?: string | null;
+  next_match_id?: string | null;
   is_bye?: boolean;
   created_at?: string;
   updated_at?: string;
@@ -216,11 +229,13 @@ export type Notification = {
 
 export type AuditLog = {
   id: string;
-  action: string;
+  action_type: string;
+  description?: string;
   actor_user_id?: string | null;
-  actor_email?: string | null;
+  entity_type?: string;
+  entity_id?: string;
+  metadata_json?: unknown;
   created_at?: string;
-  details?: Record<string, unknown> | null;
 };
 
 export type AuthResponse = {

@@ -19,7 +19,7 @@ type scheduleMatchRequest struct {
 }
 
 type submitResultRequest struct {
-	WinnerTeamID string  `json:"winner_team_id" validate:"required,uuid4"`
+	WinnerTeamID string  `json:"winner_team_id" validate:"required,uuid"`
 	ScoreText    *string `json:"score_text"`
 	Comment      *string `json:"comment"`
 }
@@ -145,6 +145,30 @@ func (h *MatchHandler) ApproveResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "result approved"})
+}
+
+type adminSetResultRequest struct {
+	WinnerTeamID string  `json:"winner_team_id"`
+	ScoreText    *string `json:"score_text"`
+}
+
+func (h *MatchHandler) AdminSetResult(w http.ResponseWriter, r *http.Request) {
+	actorUserID := mustUserID(r)
+	if actorUserID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	matchID := chi.URLParam(r, "id")
+	var req adminSetResultRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, err)
+		return
+	}
+	if err := h.deps.Matches.AdminSetResult(r.Context(), actorUserID, matchID, service.AdminSetResultInput{WinnerTeamID: req.WinnerTeamID, ScoreText: req.ScoreText}); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "result set"})
 }
 
 func (h *MatchHandler) RejectResult(w http.ResponseWriter, r *http.Request) {

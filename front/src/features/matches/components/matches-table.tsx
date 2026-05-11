@@ -1,7 +1,8 @@
-import type { Match } from "@/shared/types/api";
+import type { Match, Team } from "@/shared/types/api";
+import type { Participant } from "@/features/challonge/types";
 import { formatDateTime } from "@/shared/lib/date";
 import { matchStatusLabel, matchTeamConfirmationLabel } from "@/shared/lib/enums";
-import { pickTeamName } from "@/shared/lib/bracket";
+import { buildTeamsById, pickTeamName } from "@/shared/lib/bracket";
 import { Badge } from "@/shared/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { Button } from "@/shared/ui/button";
@@ -13,8 +14,31 @@ function tone(status: string) {
   return "muted";
 }
 
+function pickSideName(
+  match: Match,
+  side: "1" | "2",
+  teamsById: Map<string, Team>,
+  participantsById: Map<string, Participant>,
+): string {
+  const teamId = side === "1" ? match.team1_id : match.team2_id;
+  if (teamId) {
+    const team = teamsById.get(teamId);
+    if (team?.name) return team.name;
+    return teamId.slice(0, 8) + "…";
+  }
+  const participantId = side === "1" ? match.participant1_id : match.participant2_id;
+  if (participantId) {
+    const p = participantsById.get(participantId);
+    if (p?.name) return p.name;
+    return participantId.slice(0, 8) + "…";
+  }
+  return "BYE";
+}
+
 export function MatchesTable({
   matches,
+  teams = [],
+  participants = [],
   adminMode = false,
   onSchedule,
   onConfirmReady,
@@ -25,6 +49,8 @@ export function MatchesTable({
   onReject,
 }: {
   matches: Match[];
+  teams?: Team[];
+  participants?: Participant[];
   adminMode?: boolean;
   onSchedule?: (match: Match) => void;
   onConfirmReady?: (match: Match) => void;
@@ -34,6 +60,10 @@ export function MatchesTable({
   onApprove?: (match: Match) => void;
   onReject?: (match: Match) => void;
 }) {
+  const teamsById = buildTeamsById(teams);
+  const participantsById = new Map(participants.map((p) => [p.id, p]));
+  const visibleMatches = matches.filter((m) => !m.is_bye);
+
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -48,14 +78,14 @@ export function MatchesTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {matches.map((match) => (
+          {visibleMatches.map((match) => (
             <TableRow key={match.id}>
               <TableCell>
                 <div className="font-medium text-white">
-                  {pickTeamName(match, "home")} vs {pickTeamName(match, "away")}
+                  {pickSideName(match, "1", teamsById, participantsById)} vs {pickSideName(match, "2", teamsById, participantsById)}
                 </div>
                 <div className="text-xs text-[#90afd4]">
-                  Раунд {match.round_number ?? "—"} · Слот {match.slot_index ?? "—"}
+                  {match.bracket_section ? `${match.bracket_section} · ` : ""}Раунд {match.round_number ?? "—"} · Слот {match.slot_index ?? "—"}
                 </div>
               </TableCell>
               <TableCell>
@@ -65,14 +95,14 @@ export function MatchesTable({
                 <div className="space-y-1 text-xs">
                   <div>
                     A:{" "}
-                    {match.home_team_confirmation_status
-                      ? matchTeamConfirmationLabel[match.home_team_confirmation_status]
+                    {match.team1_confirmation_status
+                      ? matchTeamConfirmationLabel[match.team1_confirmation_status]
                       : "—"}
                   </div>
                   <div>
                     B:{" "}
-                    {match.away_team_confirmation_status
-                      ? matchTeamConfirmationLabel[match.away_team_confirmation_status]
+                    {match.team2_confirmation_status
+                      ? matchTeamConfirmationLabel[match.team2_confirmation_status]
                       : "—"}
                   </div>
                 </div>

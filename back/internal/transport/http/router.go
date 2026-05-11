@@ -21,7 +21,7 @@ func NewRouter(cfg *config.Config, deps handler.Deps) http.Handler {
 	r.Use(mw.SecurityHeaders)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   strings.Split(cfg.AllowedOrigins, ","),
-		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID"},
 		ExposedHeaders:   []string{"X-Request-ID"},
 		AllowCredentials: true,
@@ -56,6 +56,8 @@ func NewRouter(cfg *config.Config, deps handler.Deps) http.Handler {
 	r.Get("/tournaments/{id}/teams", tournamentHandler.GetPublicTeams)
 	r.Get("/tournaments/{id}/bracket", tournamentHandler.GetBracket)
 	r.Get("/tournaments/{id}/matches", tournamentHandler.GetPublicMatches)
+	r.Get("/tournaments/{id}/participants", tournamentHandler.GetParticipants)
+	r.Get("/teams/{id}", teamHandler.GetTeam)
 
 	r.Group(func(pr chi.Router) {
 		pr.Use(mw.AuthRequired(cfg.AccessTokenSecret))
@@ -71,6 +73,16 @@ func NewRouter(cfg *config.Config, deps handler.Deps) http.Handler {
 		pr.Post("/tournaments/{id}/managers", tournamentHandler.AddManager)
 		pr.Delete("/tournaments/{id}/managers/{userId}", tournamentHandler.RemoveManager)
 
+		pr.Post("/tournaments/{id}/register-team", tournamentHandler.RegisterTeam)
+
+		// Individual-mode participant management
+		pr.Post("/tournaments/{id}/participants", tournamentHandler.AddParticipant)
+		pr.Post("/tournaments/{id}/participants/bulk", tournamentHandler.BulkAddParticipants)
+		pr.Delete("/tournaments/{id}/participants/{participantId}", tournamentHandler.RemoveParticipant)
+		pr.Post("/tournaments/{id}/participants/shuffle", tournamentHandler.ShuffleParticipants)
+		pr.Post("/tournaments/{id}/start-bracket", tournamentHandler.StartIndividualBracket)
+		pr.Post("/tournaments/{id}/join", tournamentHandler.JoinIndividual)
+
 		pr.Post("/tournaments/{id}/google-sheet/connect", importHandler.ConnectSheet)
 		pr.Post("/tournaments/{id}/google-sheet/validate", importHandler.ValidateSheet)
 		pr.Post("/tournaments/{id}/imports/preview", importHandler.PreviewImport)
@@ -79,7 +91,7 @@ func NewRouter(cfg *config.Config, deps handler.Deps) http.Handler {
 		pr.Get("/imports/{batchId}", importHandler.GetImport)
 
 		pr.Get("/tournaments/{id}/admin/teams", teamHandler.GetAdminTeams)
-		pr.Get("/teams/{id}", teamHandler.GetTeam)
+		pr.Post("/tournaments/{id}/admin/teams", teamHandler.AdminCreateTeam)
 		pr.Patch("/teams/{id}", teamHandler.PatchTeam)
 		pr.Post("/teams/{id}/approve", teamHandler.ApproveTeam)
 		pr.Post("/teams/{id}/reject", teamHandler.RejectTeam)
@@ -92,6 +104,7 @@ func NewRouter(cfg *config.Config, deps handler.Deps) http.Handler {
 		pr.Post("/tournaments/{id}/bracket/generate", bracketHandler.Generate)
 		pr.Post("/tournaments/{id}/bracket/regenerate", bracketHandler.Regenerate)
 		pr.Post("/tournaments/{id}/bracket/reseed", bracketHandler.Reseed)
+		pr.Post("/matches/{id}/reset", bracketHandler.ResetMatch)
 
 		pr.Get("/tournaments/{id}/admin/matches", matchHandler.GetAdminMatches)
 		pr.Patch("/matches/{id}/schedule", matchHandler.Schedule)
@@ -101,6 +114,7 @@ func NewRouter(cfg *config.Config, deps handler.Deps) http.Handler {
 		pr.Post("/matches/{id}/submit-result", matchHandler.SubmitResult)
 		pr.Post("/matches/{id}/approve-result", matchHandler.ApproveResult)
 		pr.Post("/matches/{id}/reject-result", matchHandler.RejectResult)
+		pr.Post("/matches/{id}/admin-set-result", matchHandler.AdminSetResult)
 
 		pr.Get("/notifications", notificationHandler.List)
 		pr.Get("/notifications/unread-count", notificationHandler.UnreadCount)
@@ -114,6 +128,53 @@ func NewRouter(cfg *config.Config, deps handler.Deps) http.Handler {
 		pr.Post("/admin/users/{id}/block", adminHandler.BlockUser)
 		pr.Post("/admin/users/{id}/unblock", adminHandler.UnblockUser)
 		pr.Get("/admin/tournaments", adminHandler.ListTournaments)
+	})
+
+	// ── Challonge-style individual-participant tournaments ────────────────────
+	challongeHandler := handler.NewChallongeHandler(deps)
+
+	// Public (no auth needed)
+	r.Get("/c/{slug}", challongeHandler.GetBracket)
+	r.Get("/c/{slug}/standings", challongeHandler.GetStandings)
+	r.Get("/c/{slug}/events", challongeHandler.ServeEvents)
+
+	// Auth-required
+	r.Group(func(cr chi.Router) {
+		cr.Use(mw.AuthRequired(cfg.AccessTokenSecret))
+
+		cr.Post("/c", challongeHandler.CreateTournament)
+		cr.Get("/c/my-matches", challongeHandler.GetMyMatches)
+		cr.Post("/c/invites/{token}/accept", challongeHandler.AcceptInvite)
+
+		cr.Post("/c/{slug}/join", challongeHandler.Join)
+
+		// Participant management (organizer / co-organizer)
+		cr.Post("/c/{slug}/participants", challongeHandler.AddParticipant)
+		cr.Post("/c/{slug}/participants/bulk", challongeHandler.BulkAddParticipants)
+		cr.Delete("/c/{slug}/participants/{participantID}", challongeHandler.RemoveParticipant)
+		cr.Post("/c/{slug}/participants/shuffle", challongeHandler.ShuffleParticipants)
+		cr.Put("/c/{slug}/participants/reorder", challongeHandler.ReorderParticipants)
+
+		// Lifecycle (organizer / co-organizer)
+		cr.Post("/c/{slug}/start", challongeHandler.Start)
+		cr.Post("/c/{slug}/reset", challongeHandler.Reset)
+		cr.Post("/c/{slug}/unfinalize", challongeHandler.Unfinalize)
+
+		// Match results (organizer / co-organizer)
+		cr.Post("/c/{slug}/matches/{matchID}/result", challongeHandler.SubmitResult)
+		cr.Post("/c/{slug}/matches/{matchID}/reset", challongeHandler.ResetMatch)
+
+		// Match result reporting (participant self-report)
+		cr.Post("/c/{slug}/matches/{matchID}/report", challongeHandler.ReportResult)
+		cr.Post("/c/{slug}/matches/{matchID}/reports/{reportID}/approve", challongeHandler.ApproveReport)
+		cr.Post("/c/{slug}/matches/{matchID}/reports/{reportID}/reject", challongeHandler.RejectReport)
+
+		// Audit log (organizer / co-organizer)
+		cr.Get("/c/{slug}/log", challongeHandler.GetLog)
+
+		// Co-organizer management (organizer only)
+		cr.Post("/c/{slug}/co-organizers/invite", challongeHandler.InviteCoOrganizer)
+		cr.Delete("/c/{slug}/co-organizers/{userID}", challongeHandler.RemoveCoOrganizer)
 	})
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {

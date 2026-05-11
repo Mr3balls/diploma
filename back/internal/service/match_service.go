@@ -98,6 +98,40 @@ func (s *MatchService) SubmitResult(ctx context.Context, actorUserID, matchID st
 	return s.notifyManagers(ctx, match.TournamentID, entity.NotificationResultSubmitted, "Результат матча отправлен", fmt.Sprintf("По матчу %s отправлен результат на подтверждение", match.ID))
 }
 
+type AdminSetResultInput struct {
+	WinnerTeamID string
+	ScoreText    *string
+}
+
+func (s *MatchService) AdminSetResult(ctx context.Context, actorUserID, matchID string, in AdminSetResultInput) error {
+	match, err := s.brackets.GetMatchByID(ctx, matchID)
+	if err != nil {
+		return apperror.NotFound("match not found")
+	}
+	ok, err := s.tournaments.CanManageTournament(ctx, match.TournamentID, actorUserID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return apperror.Forbidden("insufficient tournament permissions")
+	}
+	if (match.Team1ID == nil || *match.Team1ID != in.WinnerTeamID) && (match.Team2ID == nil || *match.Team2ID != in.WinnerTeamID) {
+		return apperror.BadRequest("invalid_winner", "winner team must belong to the match", nil)
+	}
+	winnerID := in.WinnerTeamID
+	match.WinnerTeamID = &winnerID
+	match.ScoreText = in.ScoreText
+	match.Status = entity.MatchStatusFinished
+	if err := s.brackets.UpdateMatchState(ctx, match); err != nil {
+		return err
+	}
+	if err := s.bracketFlow.PropagateWinner(ctx, actorUserID, match.ID); err != nil {
+		return err
+	}
+	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "admin_set_result", Description: "Admin directly set match result", MetadataJSON: xjson.MustMarshal(map[string]string{"winner_team_id": in.WinnerTeamID})})
+	return s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, "Победитель матча установлен", "Менеджер установил победителя матча")
+}
+
 func (s *MatchService) ApproveResult(ctx context.Context, actorUserID, matchID string) error {
 	match, err := s.brackets.GetMatchByID(ctx, matchID)
 	if err != nil {

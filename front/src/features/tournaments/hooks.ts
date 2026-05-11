@@ -88,3 +88,86 @@ export function useTournamentAudit(id?: string, enabled = true) {
     enabled: Boolean(id) && enabled,
   });
 }
+
+export function useTournamentParticipants(id?: string) {
+  return useQuery({
+    queryKey: id ? ["tournaments", id, "participants"] : ["tournaments", "empty", "participants"],
+    queryFn: () => tournamentsApi.getParticipants(id!),
+    enabled: Boolean(id),
+    refetchInterval: 5000,
+  });
+}
+
+export function useAddTournamentParticipant(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => tournamentsApi.addParticipant(id, name),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tournaments", id, "participants"] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
+    },
+  });
+}
+
+export function useBulkAddTournamentParticipants(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (names: string[]) => tournamentsApi.bulkAddParticipants(id, names),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tournaments", id, "participants"] });
+    },
+  });
+}
+
+export function useRemoveTournamentParticipant(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (participantId: string) => tournamentsApi.removeParticipant(id, participantId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tournaments", id, "participants"] });
+    },
+  });
+}
+
+export function useShuffleTournamentParticipants(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => tournamentsApi.shuffleParticipants(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tournaments", id, "participants"] });
+    },
+  });
+}
+
+export function useStartTournamentBracket(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => tournamentsApi.startBracket(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
+      await queryClient.invalidateQueries({ queryKey: ["tournaments", id, "participants"] });
+    },
+  });
+}
+
+export function useJoinIndividualTournament(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => tournamentsApi.joinIndividual(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tournaments", id, "participants"] });
+    },
+  });
+}
+
+export function useRegisterTeam(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { team_name: string; members: string[] }) =>
+      tournamentsApi.registerTeam(id, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
+      await queryClient.invalidateQueries({ queryKey: ["tournaments", id, "teams"] });
+    },
+  });
+}

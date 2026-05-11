@@ -8,12 +8,15 @@ import { tournamentStatusLabel, visibilityLabel } from "@/shared/lib/enums";
 function statusTone(status: Tournament["status"]) {
   switch (status) {
     case "finished":
+    case "completed":
       return "success";
     case "cancelled":
       return "danger";
+    case "in_progress":
+      return "warning";
     case "registration_open":
     case "bracket_generated":
-    case "in_progress":
+    case "ready":
       return "default";
     default:
       return "muted";
@@ -34,7 +37,7 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
         <CardContent className="space-y-3">
           <p className="line-clamp-3 text-sm text-[#90afd4]">{tournament.description || "Описание не заполнено."}</p>
           <div className="grid gap-2 text-sm text-[#90afd4]">
-            <div>Игра: {tournament.game || "—"}</div>
+            <div>Игра: {tournament.discipline || "—"}</div>
             <div>Макс. команд: {tournament.max_teams ?? "—"}</div>
             <div>Создан: {formatDate(tournament.created_at)}</div>
           </div>

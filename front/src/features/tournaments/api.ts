@@ -3,8 +3,10 @@ import type {
   AuditLog,
   GenericMessageResponse,
   ListResponse,
+  TeamDetailsResponse,
   Tournament,
 } from "@/shared/types/api";
+import type { Participant } from "@/features/challonge/types";
 import type {
   ManagerFormValues,
   TournamentFormValues,
@@ -31,14 +33,15 @@ function toIsoOrUndefined(value?: string) {
 function sanitizeTournamentPayload(payload: TournamentFormValues) {
   return {
     title: payload.title.trim(),
-    discipline: payload.discipline.trim(),
+    discipline: payload.discipline?.trim() ?? "",
     description: trimOrUndefined(payload.description),
     rules: trimOrUndefined(payload.rules),
     location: trimOrUndefined(payload.location),
-    max_teams: payload.max_teams,
+    max_teams: payload.max_teams ?? 8,
     registration_deadline: toIsoOrUndefined(payload.registration_deadline),
     start_at: toIsoOrUndefined(payload.start_at),
     visibility: payload.visibility,
+    registration_mode: payload.registration_mode ?? "team",
   };
 }
 
@@ -100,6 +103,65 @@ export const tournamentsApi = {
   async getAudit(id: string) {
     const { data } = await apiClient.get<ListResponse<AuditLog>>(
       `/tournaments/${id}/audit`,
+    );
+    return data;
+  },
+
+  async getParticipants(id: string) {
+    const { data } = await apiClient.get<ListResponse<Participant>>(
+      `/tournaments/${id}/participants`,
+    );
+    return data;
+  },
+
+  async addParticipant(id: string, name: string) {
+    const { data } = await apiClient.post<Participant>(
+      `/tournaments/${id}/participants`,
+      { name },
+    );
+    return data;
+  },
+
+  async bulkAddParticipants(id: string, names: string[]) {
+    const { data } = await apiClient.post<ListResponse<Participant>>(
+      `/tournaments/${id}/participants/bulk`,
+      { names },
+    );
+    return data;
+  },
+
+  async removeParticipant(id: string, participantId: string) {
+    const { data } = await apiClient.delete<GenericMessageResponse>(
+      `/tournaments/${id}/participants/${participantId}`,
+    );
+    return data;
+  },
+
+  async shuffleParticipants(id: string) {
+    const { data } = await apiClient.post<GenericMessageResponse>(
+      `/tournaments/${id}/participants/shuffle`,
+    );
+    return data;
+  },
+
+  async startBracket(id: string) {
+    const { data } = await apiClient.post<GenericMessageResponse>(
+      `/tournaments/${id}/start-bracket`,
+    );
+    return data;
+  },
+
+  async joinIndividual(id: string) {
+    const { data } = await apiClient.post<GenericMessageResponse>(
+      `/tournaments/${id}/join`,
+    );
+    return data;
+  },
+
+  async registerTeam(id: string, payload: { team_name: string; members: string[] }) {
+    const { data } = await apiClient.post<TeamDetailsResponse>(
+      `/tournaments/${id}/register-team`,
+      payload,
     );
     return data;
   },

@@ -26,5 +26,6 @@ func toCreateTournamentInput(t *entity.Tournament) service.CreateTournamentInput
 		RegistrationDeadline: t.RegistrationDeadline,
 		StartAt:              t.StartAt,
 		Visibility:           t.Visibility,
+		RegistrationMode:     t.RegistrationMode,
 	}
 }

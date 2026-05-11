@@ -16,6 +16,8 @@ import { TournamentDetailsPage } from "@/pages/tournament-details-page";
 import { TournamentAdminPage } from "@/pages/tournament-admin-page";
 import { PlatformAdminPage } from "@/pages/platform-admin-page";
 import { NotFoundPage } from "@/pages/not-found-page";
+import { ChallongePage } from "@/pages/challonge-page";
+import { ChallongeTournamentPage } from "@/pages/challonge-tournament-page";
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +26,8 @@ export const router = createBrowserRouter([
       { path: "/", element: <HomePage /> },
       { path: "/tournaments", element: <TournamentsListPage /> },
       { path: "/tournaments/:id", element: <TournamentDetailsPage /> },
+      { path: "/challonge", element: <ChallongePage /> },
+      { path: "/challonge/:slug", element: <ChallongeTournamentPage /> },
       {
         path: "/profile",
         element: (

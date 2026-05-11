@@ -23,7 +23,9 @@ export function TournamentsListPage() {
   const createMutation = useCreateTournament();
 
   const filtered = useMemo(() => {
-    const items = tournamentsQuery.data?.items ?? [];
+    const items = (tournamentsQuery.data?.items ?? []).filter(
+      (t) => t.status !== "finished" && t.status !== "cancelled",
+    );
     const normalized = query.trim().toLowerCase();
     if (!normalized) return items;
     return items.filter((item) => item.title.toLowerCase().includes(normalized));
@@ -43,11 +45,11 @@ export function TournamentsListPage() {
     <div className="grid gap-6">
       <PageHeader
         title="Турниры"
-        description="Публичный список турниров и создание нового турнира зарегистрированным пользователем."
+        description="Список активных турниров. Завершённые турниры доступны через страницу управления."
         actions={
           isAuthenticated ? (
-            <Button onClick={() => setShowCreate((value) => !value)}>
-              {showCreate ? "Скрыть форму" : "Создать турнир"}
+            <Button onClick={() => setShowCreate((v) => !v)}>
+              {showCreate ? "Скрыть" : "Создать турнир"}
             </Button>
           ) : null
         }
@@ -55,7 +57,11 @@ export function TournamentsListPage() {
 
       <Card>
         <CardContent className="pt-5">
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по названию" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Поиск по названию"
+          />
         </CardContent>
       </Card>
 
@@ -75,8 +81,8 @@ export function TournamentsListPage() {
       {tournamentsQuery.isError ? <ErrorState /> : null}
       {!tournamentsQuery.isLoading && !tournamentsQuery.isError && !filtered.length ? (
         <EmptyState
-          title="Ничего не найдено"
-          description="Измените поисковый запрос или создайте новый турнир, если вы авторизованы."
+          title="Турниров нет"
+          description="Активных турниров не найдено. Создайте новый или проверьте позже."
         />
       ) : null}
       {filtered.length ? (

@@ -1,37 +1,53 @@
 import type { Match, Team } from "@/shared/types/api";
+import type { Participant } from "@/features/challonge/types";
 
 export type BracketRound = {
   roundNumber: number;
+  section: string;
   matches: Match[];
 };
 
 export function buildRounds(matches: Match[]) {
-  const groups = new Map<number, Match[]>();
+  const groups = new Map<string, Match[]>();
 
   for (const match of matches) {
+    const section = match.bracket_section ?? "WB";
     const round = Number(match.round_number ?? 1);
-    const existing = groups.get(round) ?? [];
+    const key = `${section}-${round}`;
+    const existing = groups.get(key) ?? [];
     existing.push(match);
-    groups.set(round, existing);
+    groups.set(key, existing);
   }
 
+  const sectionOrder: Record<string, number> = { WB: 0, LB: 1, GF: 2 };
+
   return Array.from(groups.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map<BracketRound>(([roundNumber, items]) => ({
-      roundNumber,
-      matches: [...items].sort((a, b) => Number(a.slot_index ?? 0) - Number(b.slot_index ?? 0)),
-    }));
+    .sort((a, b) => {
+      const [sA, rA] = a[0].split("-");
+      const [sB, rB] = b[0].split("-");
+      const sectionDiff = (sectionOrder[sA] ?? 99) - (sectionOrder[sB] ?? 99);
+      if (sectionDiff !== 0) return sectionDiff;
+      return Number(rA) - Number(rB);
+    })
+    .map<BracketRound>(([key, items]) => {
+      const [section, roundStr] = key.split("-");
+      return {
+        roundNumber: Number(roundStr),
+        section,
+        matches: [...items].sort((a, b) => Number(a.slot_index ?? 0) - Number(b.slot_index ?? 0)),
+      };
+    });
 }
 
 export function deriveSeedOrderFromMatches(matches: Match[]) {
   const firstRound = matches
-    .filter((match) => Number(match.round_number ?? 1) === 1)
+    .filter((match) => (match.bracket_section ?? "WB") === "WB" && Number(match.round_number ?? 1) === 1)
     .sort((a, b) => Number(a.slot_index ?? 0) - Number(b.slot_index ?? 0));
 
   const order: string[] = [];
   for (const match of firstRound) {
-    const first = pickTeamId(match, "home");
-    const second = pickTeamId(match, "away");
+    const first = match.team1_id;
+    const second = match.team2_id;
     if (first) order.push(first);
     if (second) order.push(second);
   }
@@ -45,20 +61,50 @@ export function deriveSeedOrderFromTeams(teams: Team[]) {
     .map((team) => team.id);
 }
 
-export function pickTeamId(match: Match, side: "home" | "away") {
-  const slot = side === "home" ? match.home_team_id : match.away_team_id;
-  if (slot) return slot;
-  if (side === "home" && match.home_team?.id) return match.home_team.id;
-  if (side === "away" && match.away_team?.id) return match.away_team.id;
-  return undefined;
+export function pickTeamId(match: Match, side: "team1" | "team2") {
+  return side === "team1" ? match.team1_id ?? undefined : match.team2_id ?? undefined;
 }
 
-export function pickTeamName(match: Match, side: "home" | "away") {
-  const explicitName = side === "home" ? match.home_team_name : match.away_team_name;
-  if (explicitName) return explicitName;
-
-  const nestedName = side === "home" ? match.home_team?.name : match.away_team?.name;
-  if (nestedName) return nestedName;
-
+export function pickTeamName(match: Match, side: "team1" | "team2", teamsById?: Map<string, Team>) {
+  const teamId = side === "team1" ? match.team1_id : match.team2_id;
+  if (teamId && teamsById) {
+    const team = teamsById.get(teamId);
+    if (team?.name) return team.name;
+  }
+  if (teamId) return teamId.slice(0, 8) + "…";
   return "BYE";
+}
+
+export function buildTeamsById(teams: Team[]): Map<string, Team> {
+  return new Map(teams.map((t) => [t.id, t]));
+}
+
+export function pickSideName(
+  match: Match,
+  side: "1" | "2",
+  teamsById: Map<string, Team>,
+  participantsById: Map<string, Participant>,
+): string {
+  const teamId = side === "1" ? match.team1_id : match.team2_id;
+  if (teamId) {
+    const team = teamsById.get(teamId);
+    if (team?.name) return team.name;
+    return teamId.slice(0, 8) + "…";
+  }
+  const pId = side === "1" ? match.participant1_id : match.participant2_id;
+  if (pId) {
+    const p = participantsById.get(pId);
+    if (p?.name) return p.name;
+    return pId.slice(0, 8) + "…";
+  }
+  return "BYE";
+}
+
+export function isMatchWinner(match: Match, side: "1" | "2"): boolean {
+  const teamId = side === "1" ? match.team1_id : match.team2_id;
+  const participantId = side === "1" ? match.participant1_id : match.participant2_id;
+  return Boolean(
+    (match.winner_team_id && match.winner_team_id === teamId) ||
+    (match.winner_participant_id && match.winner_participant_id === participantId),
+  );
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"esports-backend/internal/apperror"
 	"esports-backend/internal/entity"
@@ -11,6 +12,7 @@ import (
 	"esports-backend/internal/repository"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type TeamService struct {
@@ -32,6 +34,157 @@ type TeamDetails struct {
 
 type ReplaceMemberInput struct {
 	Nickname string
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if e, ok := err.(*pgconn.PgError); ok {
+		pgErr = e
+		return pgErr.Code == "23505"
+	}
+	return strings.Contains(err.Error(), "23505")
+}
+
+type RegisterTeamInput struct {
+	CaptainUserID   string
+	CaptainNickname string
+	TeamName        string
+	MemberNicknames []string
+}
+
+func (s *TeamService) RegisterTeam(ctx context.Context, tournamentID string, in RegisterTeamInput) (*TeamDetails, error) {
+	tournament, err := s.tournaments.GetTournament(ctx, tournamentID)
+	if err != nil {
+		return nil, err
+	}
+	if tournament.Status != entity.TournamentStatusRegistrationOpen {
+		return nil, apperror.BadRequest("not_open", "tournament is not accepting registrations", nil)
+	}
+	if tournament.RegistrationMode != "team" {
+		return nil, apperror.BadRequest("wrong_mode", "tournament is not team-based", nil)
+	}
+
+	existing, _ := s.teams.FindCaptainMembership(ctx, in.CaptainUserID, tournamentID)
+	if len(existing) > 0 {
+		return nil, apperror.BadRequest("already_registered", "you already have a team in this tournament", nil)
+	}
+
+	team := &entity.Team{
+		ID:           uuid.NewString(),
+		TournamentID: tournamentID,
+		Name:         in.TeamName,
+		Status:       entity.TeamStatusPending,
+	}
+	if err := s.teams.CreateTeam(ctx, team); err != nil {
+		if isUniqueViolation(err) {
+			return nil, apperror.BadRequest("name_taken", "команда с таким названием уже зарегистрирована", nil)
+		}
+		return nil, err
+	}
+
+	now := time.Now()
+	captainMember := &entity.TeamMember{
+		ID:                 uuid.NewString(),
+		TeamID:             team.ID,
+		UserID:             &in.CaptainUserID,
+		Nickname:           in.CaptainNickname,
+		MemberRole:         entity.MemberRolePlayer,
+		IsCaptain:          true,
+		ConfirmationStatus: entity.MemberConfirmationConfirmed,
+		InvitedAt:          &now,
+		RespondedAt:        &now,
+	}
+	if err := s.teams.CreateMember(ctx, captainMember); err != nil {
+		return nil, err
+	}
+
+	for _, nickname := range in.MemberNicknames {
+		if nickname == "" {
+			continue
+		}
+		var userID *string
+		if u, err := s.users.GetByNickname(ctx, nickname); err == nil {
+			userID = &u.ID
+		}
+		member := &entity.TeamMember{
+			ID:                 uuid.NewString(),
+			TeamID:             team.ID,
+			UserID:             userID,
+			Nickname:           nickname,
+			MemberRole:         entity.MemberRolePlayer,
+			IsCaptain:          false,
+			ConfirmationStatus: entity.MemberConfirmationPendingConfirmation,
+			InvitedAt:          &now,
+		}
+		if err := s.teams.CreateMember(ctx, member); err != nil {
+			return nil, err
+		}
+	}
+
+	return s.GetTeam(ctx, team.ID)
+}
+
+type AdminCreateTeamInput struct {
+	AdminUserID string
+	TeamName    string
+	Members     []string // first member is captain
+}
+
+func (s *TeamService) AdminCreateTeam(ctx context.Context, tournamentID string, in AdminCreateTeamInput) (*TeamDetails, error) {
+	ok, err := s.tournaments.CanManageTournament(ctx, tournamentID, in.AdminUserID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, apperror.Forbidden("insufficient tournament permissions")
+	}
+
+	team := &entity.Team{
+		ID:           uuid.NewString(),
+		TournamentID: tournamentID,
+		Name:         in.TeamName,
+		Status:       entity.TeamStatusPending,
+	}
+	if err := s.teams.CreateTeam(ctx, team); err != nil {
+		if isUniqueViolation(err) {
+			return nil, apperror.BadRequest("name_taken", "команда с таким названием уже существует", nil)
+		}
+		return nil, err
+	}
+
+	now := time.Now()
+	for i, nickname := range in.Members {
+		if nickname == "" {
+			continue
+		}
+		var userID *string
+		if u, err := s.users.GetByNickname(ctx, nickname); err == nil {
+			userID = &u.ID
+		}
+		isCaptain := i == 0
+		confirmStatus := entity.MemberConfirmationPendingConfirmation
+		if isCaptain {
+			confirmStatus = entity.MemberConfirmationConfirmed
+		}
+		member := &entity.TeamMember{
+			ID:                 uuid.NewString(),
+			TeamID:             team.ID,
+			UserID:             userID,
+			Nickname:           nickname,
+			MemberRole:         entity.MemberRolePlayer,
+			IsCaptain:          isCaptain,
+			ConfirmationStatus: confirmStatus,
+			InvitedAt:          &now,
+		}
+		if isCaptain {
+			member.RespondedAt = &now
+		}
+		if err := s.teams.CreateMember(ctx, member); err != nil {
+			return nil, err
+		}
+	}
+
+	return s.GetTeam(ctx, team.ID)
 }
 
 func (s *TeamService) GetTeam(ctx context.Context, teamID string) (*TeamDetails, error) {
@@ -76,9 +229,6 @@ func (s *TeamService) ApproveTeam(ctx context.Context, actorUserID, teamID strin
 	}
 	if !ok {
 		return apperror.Forbidden("insufficient tournament permissions")
-	}
-	if !IsTeamReadyForReview(details.Members) {
-		return apperror.BadRequest("team_not_ready", "captain must confirm and at least 4 players must confirm", nil)
 	}
 	approved := true
 	if err := s.teams.SetApproval(ctx, teamID, entity.TeamStatusApproved, &approved); err != nil {

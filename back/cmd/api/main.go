@@ -15,6 +15,7 @@ import (
 	"esports-backend/internal/service"
 	httptransport "esports-backend/internal/transport/http"
 	"esports-backend/internal/transport/http/handler"
+	ws "esports-backend/internal/transport/websocket"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -62,6 +63,13 @@ func main() {
 	notificationRepo := repository.NewNotificationRepository(pg)
 	auditRepo := repository.NewAuditRepository(pg)
 
+	// Challonge-style repositories
+	participantRepo := repository.NewParticipantRepository(pg)
+	membersRepo := repository.NewTournamentMemberRepository(pg)
+	reportsRepo := repository.NewResultReportRepository(pg)
+	matchLogRepo := repository.NewMatchLogRepository(pg)
+	invitesRepo := repository.NewCoOrganizerInviteRepository(pg)
+
 	tournamentService := service.NewTournamentService(tournamentRepo, teamRepo, bracketRepo, auditRepo)
 	authService := service.NewAuthService(cfg, userRepo, sessionRepo, auditRepo)
 	userService := service.NewUserService(userRepo)
@@ -72,6 +80,10 @@ func main() {
 	teamService := service.NewTeamService(tournamentService, teamRepo, userRepo, notificationRepo, auditRepo)
 	auditService := service.NewAuditService(tournamentService, auditRepo)
 	adminService := service.NewAdminService(userRepo, tournamentRepo)
+
+	// Challonge SSE hub + service
+	hub := ws.NewHub()
+	challongeService := service.NewChallongeService(pg, tournamentRepo, bracketRepo, participantRepo, membersRepo, reportsRepo, matchLogRepo, invitesRepo, userRepo, hub)
 
 	validate := validator.New()
 	_ = validate.RegisterValidation("phone_ru", func(fl validator.FieldLevel) bool {
@@ -90,6 +102,8 @@ func main() {
 		Notifications: notificationService,
 		Audits:        auditService,
 		Admin:         adminService,
+		Challonge:     challongeService,
+		Hub:           hub,
 	}
 
 	srv := &http.Server{

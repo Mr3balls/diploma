@@ -19,7 +19,7 @@ type connectSheetRequest struct {
 }
 
 type confirmImportRequest struct {
-	BatchID string `json:"batch_id" validate:"required,uuid4"`
+	BatchID string `json:"batch_id" validate:"required,uuid"`
 }
 
 func (h *ImportHandler) ConnectSheet(w http.ResponseWriter, r *http.Request) {

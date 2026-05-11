@@ -3,16 +3,17 @@ import { z } from "zod";
 export const tournamentFormSchema = z
   .object({
     title: z.string().min(2, "Введите название"),
-    discipline: z.string().min(1, "Введите дисциплину"),
+    discipline: z.string().optional(),
     description: z.string().optional(),
     rules: z.string().optional(),
     location: z.string().optional(),
-    max_teams: z.coerce.number().min(2, "Минимум 2").max(16, "Максимум 16"),
+    max_teams: z.coerce.number().min(2, "Минимум 2").max(128, "Максимум 128").optional(),
     format: z.enum(["single_elimination", "double_elimination", "group_stage"]),
     group_count: z.coerce.number().optional(),
     registration_deadline: z.string().optional(),
     start_at: z.string().optional(),
     visibility: z.enum(["public", "private"]),
+    registration_mode: z.enum(["team", "individual"]).default("team"),
   })
   .refine(
     (data) => {
@@ -35,6 +36,8 @@ export const tournamentStatusSchema = z.object({
     "in_progress",
     "finished",
     "cancelled",
+    "ready",
+    "completed",
   ]),
 });
 

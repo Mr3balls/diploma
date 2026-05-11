@@ -70,6 +70,11 @@ export function ProfilePage() {
       <Card>
         <CardContent className="grid gap-4 pt-5">
           <div className="text-sm text-[#90afd4]">Email: {meQuery.data.email}</div>
+          <div className="flex items-center gap-2 text-sm text-[#90afd4]">
+            <span>ID пользователя:</span>
+            <code className="rounded bg-[#001538] px-2 py-0.5 text-xs text-white select-all">{meQuery.data.id}</code>
+            <span className="text-xs">(используется для добавления со-организаторов)</span>
+          </div>
           <form className="grid gap-4 md:max-w-2xl" onSubmit={form.handleSubmit(onSubmit)}>
             <div className="grid gap-4 md:grid-cols-2">
               <FormField label="Имя" error={form.formState.errors.first_name?.message}>

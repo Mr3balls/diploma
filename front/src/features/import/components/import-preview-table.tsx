@@ -40,42 +40,37 @@ export function ImportPreviewTable({
               <TableHead>Капитан</TableHead>
               <TableHead>Игроки</TableHead>
               <TableHead>Ошибки</TableHead>
-              <TableHead>Дубликаты</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {preview.rows.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>
-                  <Badge tone={rowTone(row.status)}>{importRowStatusLabel[row.status]}</Badge>
-                </TableCell>
-                <TableCell>{row.team_name || "—"}</TableCell>
-                <TableCell>{row.captain_nickname || "—"}</TableCell>
-                <TableCell>{row.player_nicknames?.join(", ") || "—"}</TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-1">
-                    {row.validation_errors?.length
-                      ? row.validation_errors.map((error) => (
-                          <span key={error} className="text-xs text-red-600">
-                            {error}
-                          </span>
-                        ))
-                      : "—"}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-1">
-                    {row.duplicate_conflicts?.length
-                      ? row.duplicate_conflicts.map((conflict) => (
-                          <span key={conflict} className="text-xs text-amber-700">
-                            {conflict}
-                          </span>
-                        ))
-                      : "—"}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {preview.rows.map((row) => {
+              const players = [row.player_2_nick, row.player_3_nick, row.player_4_nick, row.player_5_nick]
+                .filter(Boolean)
+                .join(", ");
+              const errors = row.validation_errors_json ?? [];
+
+              return (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <Badge tone={rowTone(row.status)}>{importRowStatusLabel[row.status]}</Badge>
+                  </TableCell>
+                  <TableCell>{row.team_name || "—"}</TableCell>
+                  <TableCell>{row.captain_nick || "—"}</TableCell>
+                  <TableCell>{players || "—"}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      {errors.length
+                        ? errors.map((error) => (
+                            <span key={error} className="text-xs text-red-400">
+                              {error}
+                            </span>
+                          ))
+                        : "—"}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

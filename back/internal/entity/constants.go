@@ -18,6 +18,35 @@ const (
 	TournamentStatusInProgress         = "in_progress"
 	TournamentStatusFinished           = "finished"
 	TournamentStatusCancelled          = "cancelled"
+	// Challonge-style lifecycle statuses
+	TournamentStatusReady     = "ready"
+	TournamentStatusCompleted = "completed"
+)
+
+const (
+	TournamentRoleOrganizer   = "organizer"
+	TournamentRoleCoOrganizer = "co_organizer"
+	TournamentRoleParticipant = "participant"
+	TournamentRoleViewer      = "viewer"
+)
+
+const (
+	ParticipantStatusActive     = "active"
+	ParticipantStatusEliminated = "eliminated"
+	ParticipantStatusChampion   = "champion"
+)
+
+const (
+	ResultReportPending  = "pending"
+	ResultReportApproved = "approved"
+	ResultReportRejected = "rejected"
+)
+
+const (
+	InviteStatusPending  = "pending"
+	InviteStatusAccepted = "accepted"
+	InviteStatusRejected = "rejected"
+	InviteStatusExpired  = "expired"
 )
 
 const (
@@ -57,6 +86,12 @@ const (
 	ImportRowStatusDuplicate   = "duplicate"
 	ImportRowStatusRejected    = "rejected"
 	ImportRowStatusConfirmed   = "confirmed"
+)
+
+const (
+	BracketSectionWB = "WB"
+	BracketSectionLB = "LB"
+	BracketSectionGF = "GF"
 )
 
 const (

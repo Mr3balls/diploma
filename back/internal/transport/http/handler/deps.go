@@ -2,6 +2,7 @@ package handler
 
 import (
 	"esports-backend/internal/service"
+	ws "esports-backend/internal/transport/websocket"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -18,4 +19,6 @@ type Deps struct {
 	Notifications *service.NotificationService
 	Audits        *service.AuditService
 	Admin         *service.AdminService
+	Challonge     *service.ChallongeService
+	Hub           *ws.Hub
 }

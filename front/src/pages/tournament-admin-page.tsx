@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Plus, Shuffle, Play, Trash2 } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { useTournamentAdminAccess } from "@/shared/hooks/use-tournament-admin-access";
 import {
@@ -10,37 +11,40 @@ import {
   useTournament,
   useTournamentAudit,
   useUpdateTournament,
+  useTournamentParticipants,
+  useAddTournamentParticipant,
+  useBulkAddTournamentParticipants,
+  useRemoveTournamentParticipant,
+  useShuffleTournamentParticipants,
+  useStartTournamentBracket,
 } from "@/features/tournaments/hooks";
-import { useTournamentImports, useConfirmImport, useImportBatch, useConnectGoogleSheet, usePreviewImport, useValidateGoogleSheet } from "@/features/import/hooks";
-import { useApproveTeam, useRejectTeam, useTeam, useTournamentAdminTeams, useRemoveMember } from "@/features/teams/hooks";
+import { useAdminCreateTeam, useApproveTeam, useRejectTeam, useTeam, useTournamentAdminTeams, useRemoveMember } from "@/features/teams/hooks";
 import { useGenerateBracket, useRegenerateBracket, useReseedBracket, useTournamentBracket } from "@/features/bracket/hooks";
 import {
   useApproveResult,
-  useConfirmReady,
   useRejectResult,
-  useReportIssue,
-  useRequestReschedule,
   useScheduleMatch,
-  useSubmitResult,
+  useAdminSetResult,
   useTournamentAdminMatches,
 } from "@/features/matches/hooks";
-import { CreateTournamentForm } from "@/features/tournaments/components/create-tournament-form";
+import { useConnectGoogleSheet, useValidateGoogleSheet, usePreviewImport, useConfirmImport, useTournamentImports } from "@/features/import/hooks";
 import { GoogleSheetForm } from "@/features/import/components/google-sheet-form";
-import { ImportHistoryTable } from "@/features/import/components/import-history-table";
 import { ImportPreviewTable } from "@/features/import/components/import-preview-table";
+import { CreateTournamentForm } from "@/features/tournaments/components/create-tournament-form";
 import { TeamDetailsCard } from "@/features/teams/components/team-details-card";
 import { TeamsTable } from "@/features/teams/components/teams-table";
 import { BracketView } from "@/features/bracket/components/bracket-view";
+import { ChallongeBracket } from "@/features/challonge/components/challonge-bracket";
 import { ReseedBoard } from "@/features/bracket/components/reseed-board";
 import { MatchesTable } from "@/features/matches/components/matches-table";
+import type { Match } from "@/shared/types/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { managerSchema, tournamentStatusSchema, type ManagerFormValues, type TournamentFormValues } from "@/features/tournaments/schemas";
-import { requestReasonSchema, scheduleMatchSchema, submitResultSchema, type RequestReasonValues, type ScheduleMatchValues, type SubmitResultValues } from "@/features/matches/schemas";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
 import { Select } from "@/shared/ui/select";
-import { Textarea } from "@/shared/ui/textarea";
 import { Button } from "@/shared/ui/button";
 import { PageHeader } from "@/shared/ui/page-header";
 import { SectionCard } from "@/shared/ui/section";
@@ -51,6 +55,18 @@ import { formatDateTime } from "@/shared/lib/date";
 import { deriveSeedOrderFromMatches, deriveSeedOrderFromTeams } from "@/shared/lib/bracket";
 import { getErrorMessage } from "@/shared/lib/http";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Черновик · draft",
+  registration_open: "Регистрация открыта · registration_open",
+  registration_closed: "Регистрация закрыта · registration_closed",
+  bracket_generated: "Сетка создана · bracket_generated",
+  in_progress: "Идёт · in_progress",
+  finished: "Завершён · finished",
+  cancelled: "Отменён · cancelled",
+  ready: "Готов к старту · ready",
+  completed: "Завершён · completed",
+};
 
 function ManagerForm({
   onAdd,
@@ -63,29 +79,22 @@ function ManagerForm({
 }) {
   const form = useForm<ManagerFormValues>({
     resolver: zodResolver(managerSchema),
-    defaultValues: {
-      user_id: "",
-    },
+    defaultValues: { user_id: "" },
   });
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = form;
+  const { register, handleSubmit, formState: { errors } } = form;
 
   return (
     <form className="grid gap-4 md:grid-cols-[1fr_auto_auto]" onSubmit={handleSubmit(onAdd)}>
-      <FormField label="user_id менеджера" error={errors.user_id?.message}>
-        <Input {...register("user_id")} placeholder="UUID пользователя" />
+      <FormField label="UUID пользователя" error={errors.user_id?.message}>
+        <Input {...register("user_id")} placeholder="Вставьте UUID пользователя" />
       </FormField>
       <div className="pt-7">
-        <Button type="submit" disabled={isBusy}>
+        <Button type="submit" size="sm" disabled={isBusy}>
           Добавить
         </Button>
       </div>
       <div className="pt-7">
-        <Button type="button" variant="destructive" disabled={isBusy} onClick={handleSubmit(onRemove)}>
+        <Button type="button" variant="destructive" size="sm" disabled={isBusy} onClick={handleSubmit(onRemove)}>
           Удалить
         </Button>
       </div>
@@ -93,7 +102,7 @@ function ManagerForm({
   );
 }
 
-function TournamentStatusForm({
+function StatusForm({
   currentStatus,
   onSubmit,
   isBusy,
@@ -111,112 +120,246 @@ function TournamentStatusForm({
     form.reset({ status: currentStatus as any });
   }, [currentStatus, form]);
 
+  const options = Object.entries(STATUS_LABELS);
   return (
     <form
       className="flex flex-wrap items-end gap-4"
-      onSubmit={form.handleSubmit((values) => onSubmit(values.status))}
+      onSubmit={form.handleSubmit((v) => onSubmit(v.status))}
     >
-      <FormField label="Статус">
+      <FormField label="Статус турнира">
         <Select {...form.register("status")}>
-          <option value="draft">draft</option>
-          <option value="registration_open">registration_open</option>
-          <option value="registration_closed">registration_closed</option>
-          <option value="bracket_generated">bracket_generated</option>
-          <option value="in_progress">in_progress</option>
-          <option value="finished">finished</option>
-          <option value="cancelled">cancelled</option>
+          {options.map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
         </Select>
       </FormField>
-      <Button type="submit" disabled={isBusy}>
-        Обновить статус
+      <Button type="submit" size="sm" disabled={isBusy}>
+        Обновить
       </Button>
     </form>
   );
 }
 
-function MatchScheduleInline({
-  onSubmit,
-  isBusy,
-}: {
-  onSubmit: (values: ScheduleMatchValues) => void;
-  isBusy?: boolean;
-}) {
-  const form = useForm<ScheduleMatchValues>({
-    resolver: zodResolver(scheduleMatchSchema),
-    defaultValues: {
-      scheduled_at: "",
-    },
-  });
+function AdminCreateTeamForm({ tournamentId }: { tournamentId: string }) {
+  const [open, setOpen] = useState(false);
+  const [teamName, setTeamName] = useState("");
+  const [members, setMembers] = useState(["", "", "", "", ""]);
+  const createMutation = useAdminCreateTeam(tournamentId);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!teamName.trim()) { toast.error("Введите название команды"); return; }
+    try {
+      const filtered = members.map((m) => m.trim()).filter(Boolean);
+      await createMutation.mutateAsync({ team_name: teamName.trim(), members: filtered });
+      toast.success("Команда добавлена");
+      setTeamName("");
+      setMembers(["", "", "", "", ""]);
+      setOpen(false);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        + Добавить команду вручную
+      </Button>
+    );
+  }
 
   return (
-    <form className="flex flex-wrap items-end gap-3" onSubmit={form.handleSubmit(onSubmit)}>
-      <FormField label="scheduled_at">
-        <Input type="datetime-local" {...form.register("scheduled_at")} />
-      </FormField>
-      <Button type="submit" disabled={isBusy}>
-        Сохранить
-      </Button>
-    </form>
+    <Card className="border-[#0a3575]">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Новая команда</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="grid gap-1">
+            <label className="text-sm text-[#90afd4]">Название команды</label>
+            <Input
+              placeholder="Название команды"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              className="md:max-w-sm"
+            />
+          </div>
+          <div className="grid gap-2">
+            <label className="text-sm text-[#90afd4]">Игроки (первый — капитан)</label>
+            {members.map((m, i) => (
+              <div key={i} className="flex gap-2 md:max-w-sm">
+                <Input
+                  placeholder={i === 0 ? "Капитан (игрок 1)" : `Игрок ${i + 1}`}
+                  value={m}
+                  onChange={(e) => setMembers((prev) => prev.map((x, j) => j === i ? e.target.value : x))}
+                />
+                {members.length > 1 && (
+                  <Button type="button" variant="outline" size="sm" className="shrink-0"
+                    onClick={() => setMembers((prev) => prev.filter((_, j) => j !== i))}>
+                    ×
+                  </Button>
+                )}
+              </div>
+            ))}
+            {members.length < 10 && (
+              <Button type="button" variant="outline" size="sm" className="md:max-w-sm"
+                onClick={() => setMembers((prev) => [...prev, ""])}>
+                + Добавить игрока
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Button type="submit" size="sm" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Сохранение..." : "Создать"}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
+              Отмена
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
-function MatchReasonInline({
-  label,
-  onSubmit,
-  isBusy,
-}: {
-  label: string;
-  onSubmit: (values: RequestReasonValues) => void;
-  isBusy?: boolean;
-}) {
-  const form = useForm<RequestReasonValues>({
-    resolver: zodResolver(requestReasonSchema),
-    defaultValues: {
-      reason: "",
-    },
-  });
+function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId: string; hideStart?: boolean }) {
+  const [name, setName] = useState("");
+  const [bulkText, setBulkText] = useState("");
+  const [showBulk, setShowBulk] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const participantsQuery = useTournamentParticipants(tournamentId);
+  const addOne = useAddTournamentParticipant(tournamentId);
+  const bulkAdd = useBulkAddTournamentParticipants(tournamentId);
+  const remove = useRemoveTournamentParticipant(tournamentId);
+  const shuffle = useShuffleTournamentParticipants(tournamentId);
+  const start = useStartTournamentBracket(tournamentId);
+
+  const participants = participantsQuery.data?.items ?? [];
+  const canStart = participants.length >= 2;
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try {
+      await addOne.mutateAsync(trimmed);
+      setName("");
+      inputRef.current?.focus();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }
+
+  async function handleBulkAdd() {
+    const names = bulkText.split("\n").map((n) => n.trim()).filter(Boolean);
+    if (!names.length) return;
+    try {
+      await bulkAdd.mutateAsync(names);
+      setBulkText("");
+      setShowBulk(false);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }
+
+  async function handleStart() {
+    if (!confirm("Начать турнир и сгенерировать сетку?")) return;
+    try {
+      await start.mutateAsync();
+      toast.success("Сетка сгенерирована, турнир начался");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }
 
   return (
-    <form className="grid gap-3" onSubmit={form.handleSubmit(onSubmit)}>
-      <FormField label={label}>
-        <Textarea {...form.register("reason")} />
-      </FormField>
-      <Button type="submit" disabled={isBusy}>
-        Отправить
-      </Button>
-    </form>
-  );
-}
-
-function MatchResultInline({
-  onSubmit,
-  isBusy,
-}: {
-  onSubmit: (values: SubmitResultValues) => void;
-  isBusy?: boolean;
-}) {
-  const form = useForm<SubmitResultValues>({
-    resolver: zodResolver(submitResultSchema),
-    defaultValues: {
-      winner_team_id: "",
-      score_text: "",
-    },
-  });
-
-  return (
-    <form className="grid gap-3 md:grid-cols-[1fr_1fr_auto]" onSubmit={form.handleSubmit(onSubmit)}>
-      <FormField label="winner_team_id">
-        <Input {...form.register("winner_team_id")} />
-      </FormField>
-      <FormField label="score_text">
-        <Input {...form.register("score_text")} placeholder="2:0" />
-      </FormField>
-      <div className="pt-7">
-        <Button type="submit" disabled={isBusy}>
-          Отправить
+    <div className="space-y-4">
+      <form onSubmit={handleAdd} className="flex gap-2">
+        <Input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Имя участника"
+          className="flex-1"
+        />
+        <Button type="submit" size="sm" disabled={addOne.isPending || !name.trim()}>
+          <Plus className="h-4 w-4" />
         </Button>
-      </div>
-    </form>
+      </form>
+
+      <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setShowBulk((v) => !v)}>
+        {showBulk ? "Скрыть" : "Добавить списком (несколько сразу)"}
+      </Button>
+      {showBulk && (
+        <div className="space-y-2">
+          <textarea
+            className="w-full rounded-xl border border-[#0a3575] bg-[#001538] px-3 py-2 text-sm text-white placeholder-[#4a7ab5] focus:outline-none"
+            rows={5}
+            placeholder={"Один участник на строку:\nАлексей\nМихаил\nСергей"}
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+          />
+          <Button size="sm" className="w-full" onClick={handleBulkAdd} disabled={bulkAdd.isPending || !bulkText.trim()}>
+            {bulkAdd.isPending ? "Добавление..." : "Добавить всех"}
+          </Button>
+        </div>
+      )}
+
+      {participants.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-[#90afd4]">Участники: {participants.length}</span>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={shuffle.isPending || participants.length < 2}
+              onClick={() => void shuffle.mutateAsync().catch((err) => toast.error(getErrorMessage(err)))}
+            >
+              <Shuffle className="mr-1 h-3.5 w-3.5" />
+              Перемешать
+            </Button>
+          </div>
+          <ul className="divide-y divide-[#0a3575] rounded-xl border border-[#0a3575]">
+            {[...participants].sort((a, b) => a.seed - b.seed).map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-5 text-right text-xs text-[#4a7ab5]">{p.seed}</span>
+                  <span className="truncate text-sm text-white">{p.name}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 shrink-0 p-0 text-[#4a7ab5] hover:text-red-400"
+                  disabled={remove.isPending}
+                  onClick={() => void remove.mutateAsync(p.id).catch((err) => toast.error(getErrorMessage(err)))}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!hideStart && participants.length < 2 && (
+        <p className="rounded-xl bg-yellow-900/20 px-3 py-2 text-xs text-yellow-400">
+          Добавьте минимум 2 участника для запуска сетки
+        </p>
+      )}
+
+      {!hideStart && (
+        <Button
+          className="w-full"
+          disabled={!canStart || start.isPending}
+          onClick={handleStart}
+        >
+          <Play className="mr-2 h-4 w-4" />
+          {start.isPending ? "Генерация..." : "Сгенерировать сетку и начать"}
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -227,21 +370,16 @@ export function TournamentAdminPage() {
   const tournamentQuery = useTournament(id);
   const access = useTournamentAdminAccess(id, tournamentQuery.data);
 
-  const importsQuery = useTournamentImports(id, access.canAccessAdmin);
   const teamsQuery = useTournamentAdminTeams(id, access.canAccessAdmin);
   const bracketQuery = useTournamentBracket(id);
   const matchesQuery = useTournamentAdminMatches(id, access.canAccessAdmin);
+  const participantsQuery = useTournamentParticipants(id);
   const auditQuery = useTournamentAudit(id, access.canAccessAdmin);
 
   const updateTournamentMutation = useUpdateTournament(id);
   const changeStatusMutation = useChangeTournamentStatus(id);
   const addManagerMutation = useAddManager(id);
   const removeManagerMutation = useRemoveManager(id);
-
-  const connectSheetMutation = useConnectGoogleSheet(id);
-  const validateSheetMutation = useValidateGoogleSheet(id);
-  const previewImportMutation = usePreviewImport(id);
-  const confirmImportMutation = useConfirmImport(id);
 
   const approveTeamMutation = useApproveTeam(id);
   const rejectTeamMutation = useRejectTeam(id);
@@ -251,43 +389,45 @@ export function TournamentAdminPage() {
   const regenerateBracketMutation = useRegenerateBracket(id);
   const reseedBracketMutation = useReseedBracket(id);
 
-  const scheduleMatchMutation = useScheduleMatch(id);
-  const confirmReadyMutation = useConfirmReady(id);
-  const requestRescheduleMutation = useRequestReschedule(id);
-  const reportIssueMutation = useReportIssue(id);
-  const submitResultMutation = useSubmitResult(id);
   const approveResultMutation = useApproveResult(id);
   const rejectResultMutation = useRejectResult(id);
+  const scheduleMatchMutation = useScheduleMatch(id);
+  const adminSetResultMutation = useAdminSetResult(id);
+
+  const connectSheetMutation = useConnectGoogleSheet(id);
+  const validateSheetMutation = useValidateGoogleSheet(id);
+  const previewImportMutation = usePreviewImport(id);
+  const confirmImportMutation = useConfirmImport(id);
+  const importsQuery = useTournamentImports(id, access.canAccessAdmin);
+  const [importPreview, setImportPreview] = useState<import("@/shared/types/api").ImportPreviewResponse | null>(null);
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const selectedTeamQuery = useTeam(selectedTeamId ?? undefined, Boolean(selectedTeamId) && access.canAccessAdmin);
 
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
-  const selectedBatchQuery = useImportBatch(selectedBatchId ?? undefined, Boolean(selectedBatchId) && access.canAccessAdmin);
-
-  const [sheetDefaults, setSheetDefaults] = useState<{ sheet_url?: string; worksheet_name?: string }>({});
   const [reseedItems, setReseedItems] = useState<{ id: string; label: string }[]>([]);
-  const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
-  const [matchAction, setMatchAction] = useState<"schedule" | "reschedule" | "issue" | "result" | null>(null);
+
+  const [scheduleMatch, setScheduleMatch] = useState<Match | null>(null);
+  const [scheduleAt, setScheduleAt] = useState("");
+  const [resultMatch, setResultMatch] = useState<Match | null>(null);
+  const [resultWinnerId, setResultWinnerId] = useState("");
+  const [resultScore, setResultScore] = useState("");
 
   useEffect(() => {
     const fromMatches =
       bracketQuery.data?.matches?.length
-        ? deriveSeedOrderFromMatches(bracketQuery.data.matches).map((id) => ({
-            id,
-            label: teamsQuery.data?.items.find((team) => team.id === id)?.name || id,
+        ? deriveSeedOrderFromMatches(bracketQuery.data.matches).map((teamId) => ({
+            id: teamId,
+            label: teamsQuery.data?.items.find((t) => t.id === teamId)?.name || teamId,
           }))
         : [];
     const fallback =
       teamsQuery.data?.items?.length
         ? deriveSeedOrderFromTeams(teamsQuery.data.items).map((teamId) => ({
             id: teamId,
-            label: teamsQuery.data?.items.find((team) => team.id === teamId)?.name || teamId,
+            label: teamsQuery.data?.items.find((t) => t.id === teamId)?.name || teamId,
           }))
         : [];
-
-    const next = fromMatches.length ? fromMatches : fallback;
-    setReseedItems(next);
+    setReseedItems(fromMatches.length ? fromMatches : fallback);
   }, [bracketQuery.data?.matches, teamsQuery.data?.items]);
 
   if (tournamentQuery.isLoading || access.isLoading) return <Spinner />;
@@ -297,12 +437,60 @@ export function TournamentAdminPage() {
   }
 
   const tournament = tournamentQuery.data;
-  const canReseed = tournament.status !== "in_progress" && tournament.status !== "finished" && tournament.status !== "cancelled";
+  const isIndividual = tournament.registration_mode === "individual";
+  const canReseed =
+    tournament.status !== "in_progress" &&
+    tournament.status !== "finished" &&
+    tournament.status !== "cancelled";
+  const teamsById = new Map((teamsQuery.data?.items ?? []).map((t) => [t.id, t]));
+
+  function toDatetimeLocal(iso: string) {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function handleScheduleOpen(match: Match) {
+    setScheduleMatch(match);
+    setScheduleAt(match.scheduled_at ? toDatetimeLocal(match.scheduled_at) : "");
+  }
+
+  async function handleScheduleSubmit() {
+    if (!scheduleMatch || !scheduleAt) return;
+    try {
+      const isoDate = new Date(scheduleAt).toISOString();
+      await scheduleMatchMutation.mutateAsync({ matchId: scheduleMatch.id, payload: { scheduled_at: isoDate } });
+      toast.success("Время установлено");
+      setScheduleMatch(null);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }
+
+  function handleResultOpen(match: Match) {
+    setResultMatch(match);
+    setResultWinnerId("");
+    setResultScore("");
+  }
+
+  async function handleResultSubmit() {
+    if (!resultMatch || !resultWinnerId) return;
+    try {
+      await adminSetResultMutation.mutateAsync({
+        matchId: resultMatch.id,
+        payload: { winner_team_id: resultWinnerId, score_text: resultScore || undefined },
+      });
+      toast.success("Победитель установлен");
+      setResultMatch(null);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }
 
   async function handleUpdateTournament(values: TournamentFormValues) {
     try {
       await updateTournamentMutation.mutateAsync(values);
-      toast.success("Основные настройки обновлены");
+      toast.success("Настройки сохранены");
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -320,7 +508,7 @@ export function TournamentAdminPage() {
   async function handleAddManager(values: ManagerFormValues) {
     try {
       await addManagerMutation.mutateAsync(values);
-      toast.success("Менеджер добавлен");
+      toast.success("Со-организатор добавлен");
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -329,47 +517,7 @@ export function TournamentAdminPage() {
   async function handleRemoveManager(values: ManagerFormValues) {
     try {
       await removeManagerMutation.mutateAsync(values.user_id);
-      toast.success("Менеджер удалён");
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
-  }
-
-  async function handleConnectSheet(values: { sheet_url: string; worksheet_name: string }) {
-    try {
-      await connectSheetMutation.mutateAsync(values);
-      setSheetDefaults(values);
-      toast.success("Связь с таблицей сохранена");
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
-  }
-
-  async function handleValidateSheet(values: { sheet_url: string; worksheet_name: string }) {
-    try {
-      const response = await validateSheetMutation.mutateAsync(values);
-      setSheetDefaults(values);
-      toast.success(`Проверка прошла: строк ${response.row_count}`);
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
-  }
-
-  async function handlePreviewImport(values: { sheet_url: string; worksheet_name: string }) {
-    try {
-      const response = await previewImportMutation.mutateAsync(values);
-      setSelectedBatchId(response.batch.id);
-      setSheetDefaults(values);
-      toast.success("Превью импорта готово");
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
-  }
-
-  async function handleConfirmImport(batchId: string) {
-    try {
-      await confirmImportMutation.mutateAsync({ batch_id: batchId });
-      toast.success("Импорт подтверждён");
+      toast.success("Со-организатор удалён");
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -431,15 +579,6 @@ export function TournamentAdminPage() {
     }
   }
 
-  async function handleConfirmReady(matchId: string) {
-    try {
-      await confirmReadyMutation.mutateAsync(matchId);
-      toast.success("Готовность подтверждена");
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
-  }
-
   async function handleApproveResult(matchId: string) {
     try {
       await approveResultMutation.mutateAsync(matchId);
@@ -458,16 +597,57 @@ export function TournamentAdminPage() {
     }
   }
 
-  const activeMatch = matchesQuery.data?.items.find((item) => item.id === activeMatchId) ?? null;
+  async function handleConnectSheet(values: import("@/features/import/schemas").GoogleSheetFormValues) {
+    try {
+      await connectSheetMutation.mutateAsync(values);
+      toast.success("Таблица привязана");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function handleValidateSheet(values: import("@/features/import/schemas").GoogleSheetFormValues) {
+    try {
+      await validateSheetMutation.mutateAsync(values);
+      toast.success("Таблица прошла проверку");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function handlePreviewImport(values: import("@/features/import/schemas").GoogleSheetFormValues) {
+    try {
+      const result = await previewImportMutation.mutateAsync(values);
+      setImportPreview(result);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function handleConfirmImport(batchId: string) {
+    try {
+      await confirmImportMutation.mutateAsync({ batch_id: batchId });
+      toast.success("Импорт подтверждён");
+      setImportPreview(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  const sheetIsBusy =
+    connectSheetMutation.isPending ||
+    validateSheetMutation.isPending ||
+    previewImportMutation.isPending ||
+    confirmImportMutation.isPending;
 
   return (
     <div className="grid gap-6">
       <PageHeader
-        title={`Admin · ${tournament.title}`}
-        description="Отдельная административная страница турнира. Публичный просмотр и управление разделены."
+        title={tournament.title}
+        description="Управление турниром"
       />
 
-      <SectionCard title="General settings" description="Редактирование турнира и смена статуса.">
+      <SectionCard title="Основные настройки" description="Редактирование параметров и смена статуса.">
         <div className="grid gap-6">
           <CreateTournamentForm
             defaultValues={{
@@ -478,11 +658,12 @@ export function TournamentAdminPage() {
               max_teams: tournament.max_teams ?? 8,
               visibility: tournament.visibility,
             }}
-            submitLabel="Сохранить изменения"
+            submitLabel="Сохранить"
             onSubmit={handleUpdateTournament}
             isSubmitting={updateTournamentMutation.isPending}
+            showAdvanced
           />
-          <TournamentStatusForm
+          <StatusForm
             currentStatus={tournament.status}
             onSubmit={handleStatusUpdate}
             isBusy={changeStatusMutation.isPending}
@@ -491,8 +672,8 @@ export function TournamentAdminPage() {
       </SectionCard>
 
       <SectionCard
-        title="Managers"
-        description="Backend не даёт списка менеджеров и не поддерживает поиск пользователей. Только manual user_id input."
+        title="Со-организаторы"
+        description="Добавьте пользователей, которые смогут управлять турниром наравне с вами."
       >
         <ManagerForm
           onAdd={handleAddManager}
@@ -501,221 +682,220 @@ export function TournamentAdminPage() {
         />
       </SectionCard>
 
-      <SectionCard
-        title="Public Google Sheet connect"
-        description="Frontend отправляет только sheet_url и worksheet_name. OAuth и Google account connect отсутствуют намеренно."
-      >
-        <div className="grid gap-4">
-          <GoogleSheetForm
-            defaultValues={sheetDefaults}
-            onConnect={handleConnectSheet}
-            onValidate={handleValidateSheet}
-            onPreview={handlePreviewImport}
-            isBusy={
-              connectSheetMutation.isPending ||
-              validateSheetMutation.isPending ||
-              previewImportMutation.isPending
+      {tournament.registration_mode === "individual" ? (
+        <>
+          <SectionCard
+            title="Участники"
+            description="Добавьте участников по имени, перемешайте посев и запустите сетку."
+          >
+            <IndividualParticipantPanel tournamentId={id} />
+          </SectionCard>
+          {(bracketQuery.data?.matches ?? []).length > 0 && (
+            <SectionCard title="Сетка" description="Турнирная сетка по участникам.">
+              <ChallongeBracket
+                matches={(bracketQuery.data?.matches ?? []) as any}
+                participants={participantsQuery.data?.items ?? []}
+                isManager
+                slug={id}
+              />
+            </SectionCard>
+          )}
+        </>
+      ) : (
+        <>
+          <SectionCard
+            title="Игроки (пул)"
+            description="Игроки, записавшиеся индивидуально. Добавляйте вручную или принимайте заявки."
+          >
+            <IndividualParticipantPanel tournamentId={id} hideStart />
+          </SectionCard>
+
+          <SectionCard
+            title="Импорт из Google Sheets"
+            description="Загрузите команды из публичной таблицы Google Sheets."
+          >
+            <div className="grid gap-4">
+              <GoogleSheetForm
+                onConnect={handleConnectSheet}
+                onValidate={handleValidateSheet}
+                onPreview={handlePreviewImport}
+                isBusy={sheetIsBusy}
+              />
+              {importPreview && (
+                <ImportPreviewTable
+                  preview={importPreview}
+                  onConfirm={handleConfirmImport}
+                  isConfirming={confirmImportMutation.isPending}
+                />
+              )}
+              {importsQuery.data?.items.length ? (
+                <div className="text-xs text-[#90afd4]">
+                  Последних импортов: {importsQuery.data.items.length}
+                </div>
+              ) : null}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Команды" description="Одобрение и управление зарегистрированными командами.">
+            <div className="grid gap-4">
+              <AdminCreateTeamForm tournamentId={id} />
+              {teamsQuery.isLoading ? (
+                <Spinner />
+              ) : teamsQuery.isError ? (
+                <ErrorState />
+              ) : teamsQuery.data?.items.length ? (
+                <TeamsTable
+                  teams={teamsQuery.data.items}
+                  withActions
+                  onOpen={setSelectedTeamId}
+                  onApprove={handleApproveTeam}
+                  onReject={handleRejectTeam}
+                />
+              ) : (
+                <EmptyState title="Команд нет" description="Пока никто не зарегистрировался." />
+              )}
+              {selectedTeamId && selectedTeamQuery.isLoading ? <Spinner /> : null}
+              {selectedTeamQuery.data && selectedTeamId ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-[#4a7ab5]">Состав команды</p>
+                    <Button variant="ghost" size="sm" className="text-xs text-[#4a7ab5]" onClick={() => setSelectedTeamId(null)}>
+                      Закрыть
+                    </Button>
+                  </div>
+                  <TeamDetailsCard
+                    data={selectedTeamQuery.data}
+                    allowAdminActions
+                    onRemoveMember={handleRemoveMember}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Сетка"
+            description="Генерация сетки по зарегистрированным командам. Перегенерация сбрасывает текущую сетку."
+            actions={
+              <>
+                <Button onClick={handleGenerateBracket} size="sm" disabled={generateBracketMutation.isPending}>
+                  Сгенерировать
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleRegenerateBracket} disabled={regenerateBracketMutation.isPending}>
+                  Пересоздать
+                </Button>
+              </>
             }
-          />
-          {validateSheetMutation.data ? (
-            <div className="rounded-2xl border border-[#0a3575] bg-[#002366] p-4 text-sm text-[#90afd4]">
-              <div>Spreadsheet ID: {validateSheetMutation.data.spreadsheet_id}</div>
-              <div>Worksheet: {validateSheetMutation.data.worksheet_name}</div>
-              <div>Rows: {validateSheetMutation.data.row_count}</div>
-              <div>Sample row: {validateSheetMutation.data.sample_row.join(" | ")}</div>
-            </div>
-          ) : null}
-        </div>
-      </SectionCard>
+          >
+            {bracketQuery.isLoading ? (
+              <Spinner />
+            ) : bracketQuery.isError ? (
+              <ErrorState />
+            ) : (
+              <BracketView
+                matches={bracketQuery.data?.matches ?? []}
+                teams={teamsQuery.data?.items ?? []}
+                adminMode
+                tournamentId={id}
+              />
+            )}
+          </SectionCard>
 
-      <SectionCard title="Import preview" description="Ошибки валидации и конфликты дубликатов показываются явно.">
-        {previewImportMutation.data ? (
-          <ImportPreviewTable
-            preview={previewImportMutation.data}
-            onConfirm={handleConfirmImport}
-            isConfirming={confirmImportMutation.isPending}
-          />
-        ) : selectedBatchQuery.data ? (
-          <ImportPreviewTable
-            preview={selectedBatchQuery.data}
-            onConfirm={handleConfirmImport}
-            isConfirming={confirmImportMutation.isPending}
-          />
-        ) : (
-          <EmptyState
-            title="Нет превью импорта"
-            description="Сначала выполните preview для выбранной Google Sheet."
-          />
-        )}
-      </SectionCard>
-
-      <SectionCard title="Import history" description="История import batches для текущего турнира.">
-        {importsQuery.isLoading ? (
-          <Spinner />
-        ) : importsQuery.isError ? (
-          <ErrorState />
-        ) : importsQuery.data?.items.length ? (
-          <ImportHistoryTable items={importsQuery.data.items} onOpen={setSelectedBatchId} />
-        ) : (
-          <EmptyState title="История пуста" description="Импортов пока не было." />
-        )}
-      </SectionCard>
-
-      <SectionCard title="Teams and confirmations" description="Одобрение команды доступно после выполнения правил готовности.">
-        <div className="grid gap-4">
-          {teamsQuery.isLoading ? (
-            <Spinner />
-          ) : teamsQuery.isError ? (
-            <ErrorState />
-          ) : teamsQuery.data?.items.length ? (
-            <TeamsTable
-              teams={teamsQuery.data.items}
-              withActions
-              onOpen={setSelectedTeamId}
-              onApprove={handleApproveTeam}
-              onReject={handleRejectTeam}
+          <SectionCard title="Посев" description="Перетащите команды для изменения порядка посева.">
+            <ReseedBoard
+              items={reseedItems}
+              onChange={setReseedItems}
+              onSave={handleSaveReseed}
+              disabled={!canReseed}
+              saving={reseedBracketMutation.isPending}
             />
-          ) : (
-            <EmptyState title="Нет команд" description="После импорта команды появятся здесь." />
-          )}
+          </SectionCard>
+        </>
+      )}
 
-          {selectedTeamId && selectedTeamQuery.isLoading ? <Spinner /> : null}
-          {selectedTeamQuery.data ? (
-            <TeamDetailsCard
-              data={selectedTeamQuery.data}
-              allowAdminActions
-              onRemoveMember={handleRemoveMember}
-            />
-          ) : null}
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Bracket generation"
-        description="Single elimination. Базовый посев случайный. Ресидинг отдельным блоком ниже."
-        actions={
-          <>
-            <Button onClick={handleGenerateBracket} disabled={generateBracketMutation.isPending}>
-              Сгенерировать
-            </Button>
-            <Button variant="outline" onClick={handleRegenerateBracket} disabled={regenerateBracketMutation.isPending}>
-              Пересоздать
-            </Button>
-          </>
-        }
-      >
-        {bracketQuery.isLoading ? <Spinner /> : bracketQuery.isError ? <ErrorState /> : <BracketView matches={bracketQuery.data?.matches ?? []} adminMode />}
-      </SectionCard>
-
-      <SectionCard title="Drag-and-drop reseeding" description='POST /tournaments/:id/bracket/reseed с payload { "ordered_team_ids": string[] }'>
-        <ReseedBoard
-          items={reseedItems}
-          onChange={setReseedItems}
-          onSave={handleSaveReseed}
-          disabled={!canReseed}
-          saving={reseedBracketMutation.isPending}
-        />
-      </SectionCard>
-
-      <SectionCard title="Match management" description="Расписание, готовность, переносы, проблемы и результаты.">
-        <div className="grid gap-4">
-          {matchesQuery.isLoading ? (
-            <Spinner />
-          ) : matchesQuery.isError ? (
-            <ErrorState />
-          ) : matchesQuery.data?.items.length ? (
-            <MatchesTable
-              matches={matchesQuery.data.items}
-              adminMode
-              onSchedule={(match) => {
-                setActiveMatchId(match.id);
-                setMatchAction("schedule");
-              }}
-              onConfirmReady={(match) => void handleConfirmReady(match.id)}
-              onReschedule={(match) => {
-                setActiveMatchId(match.id);
-                setMatchAction("reschedule");
-              }}
-              onIssue={(match) => {
-                setActiveMatchId(match.id);
-                setMatchAction("issue");
-              }}
-              onSubmitResult={(match) => {
-                setActiveMatchId(match.id);
-                setMatchAction("result");
-              }}
-              onApprove={(match) => void handleApproveResult(match.id)}
-              onReject={(match) => void handleRejectResult(match.id)}
-            />
-          ) : (
-            <EmptyState title="Матчей нет" description="После генерации сетки матчи появятся здесь." />
-          )}
-
-          {activeMatch ? (
-            <div className="rounded-2xl border border-[#0a3575] bg-[#002366] p-4">
-              <div className="mb-4 text-sm font-medium text-white">
-                Активный матч: {activeMatch.id}
+      <SectionCard title="Матчи" description="Просмотр и управление результатами матчей.">
+        {scheduleMatch && (
+          <Card className="mb-4 border-[#0a3575]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Время матча — Раунд {scheduleMatch.round_number ?? "—"} · Слот {scheduleMatch.slot_index ?? "—"}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid gap-1">
+                <label className="text-sm text-[#90afd4]">Дата и время</label>
+                <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} className="md:max-w-sm" />
               </div>
-              {matchAction === "schedule" ? (
-                <MatchScheduleInline
-                  onSubmit={async (values) => {
-                    try {
-                      await scheduleMatchMutation.mutateAsync({ matchId: activeMatch.id, payload: values });
-                      toast.success("Время матча обновлено");
-                    } catch (error) {
-                      toast.error(getErrorMessage(error));
-                    }
-                  }}
-                  isBusy={scheduleMatchMutation.isPending}
-                />
-              ) : null}
-              {matchAction === "reschedule" ? (
-                <MatchReasonInline
-                  label="Причина переноса"
-                  onSubmit={async (values) => {
-                    try {
-                      await requestRescheduleMutation.mutateAsync({ matchId: activeMatch.id, payload: values });
-                      toast.success("Запрос на перенос отправлен");
-                    } catch (error) {
-                      toast.error(getErrorMessage(error));
-                    }
-                  }}
-                  isBusy={requestRescheduleMutation.isPending}
-                />
-              ) : null}
-              {matchAction === "issue" ? (
-                <MatchReasonInline
-                  label="Описание проблемы"
-                  onSubmit={async (values) => {
-                    try {
-                      await reportIssueMutation.mutateAsync({ matchId: activeMatch.id, payload: values });
-                      toast.success("Проблема отправлена");
-                    } catch (error) {
-                      toast.error(getErrorMessage(error));
-                    }
-                  }}
-                  isBusy={reportIssueMutation.isPending}
-                />
-              ) : null}
-              {matchAction === "result" ? (
-                <MatchResultInline
-                  onSubmit={async (values) => {
-                    try {
-                      await submitResultMutation.mutateAsync({ matchId: activeMatch.id, payload: values });
-                      toast.success("Результат отправлен");
-                    } catch (error) {
-                      toast.error(getErrorMessage(error));
-                    }
-                  }}
-                  isBusy={submitResultMutation.isPending}
-                />
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+              <div className="flex gap-3">
+                <Button size="sm" disabled={scheduleMatchMutation.isPending || !scheduleAt} onClick={() => void handleScheduleSubmit()}>
+                  {scheduleMatchMutation.isPending ? "Сохранение..." : "Сохранить"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setScheduleMatch(null)}>Отмена</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {resultMatch && (
+          <Card className="mb-4 border-[#0a3575]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Победитель — Раунд {resultMatch.round_number ?? "—"} · Слот {resultMatch.slot_index ?? "—"}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid gap-2">
+                <p className="text-sm text-[#90afd4]">Выберите победителя:</p>
+                {resultMatch.team1_id && (
+                  <Button
+                    size="sm"
+                    variant={resultWinnerId === resultMatch.team1_id ? "default" : "outline"}
+                    className="justify-start"
+                    onClick={() => setResultWinnerId(resultMatch.team1_id!)}
+                  >
+                    {teamsById.get(resultMatch.team1_id)?.name ?? resultMatch.team1_id.slice(0, 8)}
+                  </Button>
+                )}
+                {resultMatch.team2_id && (
+                  <Button
+                    size="sm"
+                    variant={resultWinnerId === resultMatch.team2_id ? "default" : "outline"}
+                    className="justify-start"
+                    onClick={() => setResultWinnerId(resultMatch.team2_id!)}
+                  >
+                    {teamsById.get(resultMatch.team2_id)?.name ?? resultMatch.team2_id.slice(0, 8)}
+                  </Button>
+                )}
+              </div>
+              <div className="grid gap-1">
+                <label className="text-sm text-[#90afd4]">Счёт (опционально)</label>
+                <Input placeholder="Напр. 2:1" value={resultScore} onChange={(e) => setResultScore(e.target.value)} className="md:max-w-sm" />
+              </div>
+              <div className="flex gap-3">
+                <Button size="sm" disabled={adminSetResultMutation.isPending || !resultWinnerId} onClick={() => void handleResultSubmit()}>
+                  {adminSetResultMutation.isPending ? "Сохранение..." : "Установить победителя"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setResultMatch(null)}>Отмена</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {matchesQuery.isLoading ? (
+          <Spinner />
+        ) : matchesQuery.isError ? (
+          <ErrorState />
+        ) : matchesQuery.data?.items.length ? (
+          <MatchesTable
+            matches={matchesQuery.data.items}
+            teams={teamsQuery.data?.items ?? []}
+            participants={participantsQuery.data?.items ?? []}
+            adminMode
+            onSchedule={handleScheduleOpen}
+            onSubmitResult={!isIndividual ? handleResultOpen : undefined}
+            onApprove={(match) => void handleApproveResult(match.id)}
+            onReject={(match) => void handleRejectResult(match.id)}
+          />
+        ) : (
+          <EmptyState title="Матчей нет" description="После генерации сетки матчи появятся здесь." />
+        )}
       </SectionCard>
 
-      <SectionCard title="Audit log" description="Журнал действий по турниру.">
+      <SectionCard title="Журнал аудита" description="История действий по турниру.">
         {auditQuery.isLoading ? (
           <Spinner />
         ) : auditQuery.isError ? (
@@ -727,18 +907,18 @@ export function TournamentAdminPage() {
                 <TableRow>
                   <TableHead>Время</TableHead>
                   <TableHead>Действие</TableHead>
-                  <TableHead>Actor</TableHead>
-                  <TableHead>Details</TableHead>
+                  <TableHead>Пользователь</TableHead>
+                  <TableHead>Детали</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {auditQuery.data.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{formatDateTime(item.created_at)}</TableCell>
-                    <TableCell>{item.action}</TableCell>
-                    <TableCell>{item.actor_email || item.actor_user_id || "—"}</TableCell>
-                    <TableCell className="max-w-[360px] whitespace-pre-wrap break-words text-xs">
-                      {item.details ? JSON.stringify(item.details, null, 2) : "—"}
+                    <TableCell>{item.action_type}</TableCell>
+                    <TableCell>{item.actor_user_id || "—"}</TableCell>
+                    <TableCell className="max-w-[320px] whitespace-pre-wrap break-words text-xs">
+                      {item.metadata_json ? JSON.stringify(item.metadata_json, null, 2) : item.description || "—"}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -746,7 +926,7 @@ export function TournamentAdminPage() {
             </Table>
           </div>
         ) : (
-          <EmptyState title="Записей аудита нет" description="Audit log пока пуст." />
+          <EmptyState title="Журнал пуст" description="Действий пока не было." />
         )}
       </SectionCard>
     </div>

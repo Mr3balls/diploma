@@ -34,6 +34,13 @@ export const teamsApi = {
     const { data } = await apiClient.post<GenericMessageResponse>(`/teams/${teamId}/members/${memberId}/replace`, payload);
     return data;
   },
+  async adminCreateTeam(tournamentId: string, payload: { team_name: string; members: string[] }) {
+    const { data } = await apiClient.post<TeamDetailsResponse>(
+      `/tournaments/${tournamentId}/admin/teams`,
+      payload,
+    );
+    return data;
+  },
   async acceptParticipation(id: string) {
     const { data } = await apiClient.post<GenericMessageResponse>(`/team-members/${id}/accept`);
     return data;

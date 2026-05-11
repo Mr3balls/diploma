@@ -53,7 +53,7 @@ func (r *TeamRepository) ListByTournament(ctx context.Context, tournamentID stri
         WHERE tournament_id=$1 AND deleted_at IS NULL
     `
 	if !admin {
-		query += ` AND status='approved'`
+		query += ` AND status != 'rejected'`
 	}
 	query += ` ORDER BY created_at ASC`
 

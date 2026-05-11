@@ -84,6 +84,19 @@ export function useSubmitResult(tournamentId: string) {
   });
 }
 
+export function useAdminSetResult(tournamentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ matchId, payload }: { matchId: string; payload: { winner_team_id: string; score_text?: string } }) =>
+      matchesApi.adminSetResult(matchId, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentMatches(tournamentId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentAdminMatches(tournamentId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentBracket(tournamentId) });
+    },
+  });
+}
+
 export function useApproveResult(tournamentId: string) {
   const queryClient = useQueryClient();
   return useMutation({

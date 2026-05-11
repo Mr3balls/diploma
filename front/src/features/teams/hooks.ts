@@ -59,6 +59,18 @@ export function useRemoveMember(tournamentId: string) {
   });
 }
 
+export function useAdminCreateTeam(tournamentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { team_name: string; members: string[] }) =>
+      teamsApi.adminCreateTeam(tournamentId, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentAdminTeams(tournamentId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentTeams(tournamentId) });
+    },
+  });
+}
+
 export function useAcceptParticipation() {
   return useMutation({
     mutationFn: (id: string) => teamsApi.acceptParticipation(id),

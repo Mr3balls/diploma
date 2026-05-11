@@ -25,6 +25,37 @@ type replaceMemberRequest struct {
 	Nickname string `json:"nickname" validate:"required,min=2,max=50"`
 }
 
+func (h *TeamHandler) AdminCreateTeam(w http.ResponseWriter, r *http.Request) {
+	actorUserID := mustUserID(r)
+	if actorUserID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	tournamentID := chi.URLParam(r, "id")
+	var req struct {
+		TeamName string   `json:"team_name" validate:"required,min=2,max=100"`
+		Members  []string `json:"members" validate:"required,min=1"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, err)
+		return
+	}
+	if err := h.deps.Validate.Struct(req); err != nil {
+		writeError(w, err)
+		return
+	}
+	result, err := h.deps.Teams.AdminCreateTeam(r.Context(), tournamentID, service.AdminCreateTeamInput{
+		AdminUserID: actorUserID,
+		TeamName:    req.TeamName,
+		Members:     req.Members,
+	})
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, result)
+}
+
 func (h *TeamHandler) GetAdminTeams(w http.ResponseWriter, r *http.Request) {
 	actorUserID := mustUserID(r)
 	if actorUserID == "" {
