@@ -568,6 +568,8 @@ func buildEntityMatches(
 	switch format {
 	case "double_elimination":
 		nodes, err = bracket.BuildDouble(len(teamIDs))
+	case "group_stage":
+		return nil, apperror.BadRequest("not_implemented", "групповой этап пока не поддерживается, используйте single или double elimination", nil)
 	default:
 		nodes, err = bracket.BuildSingle(len(teamIDs))
 	}

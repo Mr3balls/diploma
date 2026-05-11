@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"regexp"
+	"syscall"
 	"time"
 
 	"esports-backend/internal/config"
 	"esports-backend/internal/database"
 	googleclient "esports-backend/internal/integration/google"
+	"esports-backend/internal/pkg/email"
 	"esports-backend/internal/repository"
 	"esports-backend/internal/service"
 	httptransport "esports-backend/internal/transport/http"
@@ -70,14 +74,23 @@ func main() {
 	matchLogRepo := repository.NewMatchLogRepository(pg)
 	invitesRepo := repository.NewCoOrganizerInviteRepository(pg)
 
+	var emailSender *email.Sender
+	if cfg.SMTPHost != "" && cfg.SMTPUser != "" && cfg.SMTPPassword != "" {
+		emailSender = email.NewSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom)
+		log.Printf("email notifications enabled (SMTP: %s:%s)", cfg.SMTPHost, cfg.SMTPPort)
+	} else {
+		log.Println("email notifications disabled (SMTP not configured)")
+	}
+	emailService := service.NewEmailService(emailSender)
+
 	tournamentService := service.NewTournamentService(tournamentRepo, teamRepo, bracketRepo, auditRepo)
-	authService := service.NewAuthService(cfg, userRepo, sessionRepo, auditRepo)
+	authService := service.NewAuthService(cfg, userRepo, sessionRepo, auditRepo, emailService)
 	userService := service.NewUserService(userRepo)
 	importService := service.NewImportService(tournamentService, importRepo, teamRepo, userRepo, notificationRepo, auditRepo, sheetsReader)
 	notificationService := service.NewNotificationService(notificationRepo)
 	bracketService := service.NewBracketService(pg, tournamentService, bracketRepo, teamRepo, notificationRepo, auditRepo)
-	matchService := service.NewMatchService(tournamentService, bracketRepo, teamRepo, notificationRepo, auditRepo, bracketService)
-	teamService := service.NewTeamService(tournamentService, teamRepo, userRepo, notificationRepo, auditRepo)
+	matchService := service.NewMatchService(tournamentService, bracketRepo, teamRepo, userRepo, notificationRepo, auditRepo, bracketService, emailService)
+	teamService := service.NewTeamService(tournamentService, teamRepo, userRepo, notificationRepo, auditRepo, emailService)
 	auditService := service.NewAuditService(tournamentService, auditRepo)
 	adminService := service.NewAdminService(userRepo, tournamentRepo)
 
@@ -108,15 +121,31 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.HTTPPort,
-		Handler:           httptransport.NewRouter(cfg, deps),
+		Handler:           httptransport.NewRouter(cfg, deps, redisClient),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       20 * time.Second,
 		WriteTimeout:      20 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 
-	log.Printf("server listening on :%s", cfg.HTTPPort)
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Printf("server listening on :%s", cfg.HTTPPort)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	<-quit
+	log.Println("shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("forced shutdown: %v", err)
 	}
+	log.Println("server stopped")
 }

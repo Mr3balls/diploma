@@ -3,11 +3,47 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"esports-backend/internal/entity"
 
 	"github.com/jackc/pgx/v5"
 )
+
+// TournamentFilter holds optional filter parameters for public tournament queries.
+type TournamentFilter struct {
+	Status     string // exact match, e.g. "registration_open"
+	Format     string // exact match, e.g. "single_elimination"
+	Discipline string // case-insensitive substring match
+	Query      string // searches title and discipline via ILIKE
+}
+
+// publicWhere builds the WHERE clause and args for public tournament queries.
+// Returns (whereClause, args) where whereClause starts with "WHERE ".
+func publicWhere(f TournamentFilter) (string, []interface{}) {
+	conds := []string{"deleted_at IS NULL", "visibility='public'"}
+	args := []interface{}{}
+
+	if f.Status != "" {
+		args = append(args, f.Status)
+		conds = append(conds, fmt.Sprintf("status=$%d", len(args)))
+	}
+	if f.Format != "" {
+		args = append(args, f.Format)
+		conds = append(conds, fmt.Sprintf("format=$%d", len(args)))
+	}
+	if f.Discipline != "" {
+		args = append(args, "%"+f.Discipline+"%")
+		conds = append(conds, fmt.Sprintf("discipline ILIKE $%d", len(args)))
+	}
+	if f.Query != "" {
+		args = append(args, "%"+f.Query+"%")
+		conds = append(conds, fmt.Sprintf("(title ILIKE $%d OR discipline ILIKE $%d)", len(args), len(args)))
+	}
+
+	return "WHERE " + strings.Join(conds, " AND "), args
+}
 
 type TournamentRepository struct {
 	db Queryer
@@ -66,19 +102,30 @@ func (r *TournamentRepository) GetBySlug(ctx context.Context, slug string) (*ent
 	return scanTournament(row)
 }
 
-func (r *TournamentRepository) ListPublic(ctx context.Context, limit, offset int) ([]entity.Tournament, error) {
-	rows, err := r.db.Query(ctx, `
+func (r *TournamentRepository) ListPublic(ctx context.Context, limit, offset int, f TournamentFilter) ([]entity.Tournament, error) {
+	where, args := publicWhere(f)
+	args = append(args, limit, offset)
+	q := fmt.Sprintf(`
         SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, created_at, updated_at, deleted_at
         FROM tournaments
-        WHERE deleted_at IS NULL AND visibility='public'
+        %s
         ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2
-    `, limit, offset)
+        LIMIT $%d OFFSET $%d
+    `, where, len(args)-1, len(args))
+	rows, err := r.db.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	return scanTournamentRows(rows)
+}
+
+func (r *TournamentRepository) CountPublic(ctx context.Context, f TournamentFilter) (int, error) {
+	where, args := publicWhere(f)
+	q := fmt.Sprintf(`SELECT COUNT(*) FROM tournaments %s`, where)
+	var n int
+	err := r.db.QueryRow(ctx, q, args...).Scan(&n)
+	return n, err
 }
 
 func (r *TournamentRepository) ListAll(ctx context.Context, limit, offset int) ([]entity.Tournament, error) {
@@ -94,6 +141,12 @@ func (r *TournamentRepository) ListAll(ctx context.Context, limit, offset int) (
 	}
 	defer rows.Close()
 	return scanTournamentRows(rows)
+}
+
+func (r *TournamentRepository) CountAll(ctx context.Context) (int, error) {
+	var n int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM tournaments WHERE deleted_at IS NULL`).Scan(&n)
+	return n, err
 }
 
 func scanTournament(row interface{ Scan(...interface{}) error }) (*entity.Tournament, error) {

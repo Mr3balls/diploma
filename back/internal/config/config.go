@@ -22,6 +22,11 @@ type Config struct {
 	GoogleServiceAccountFile string
 	GoogleDefaultWorksheet   string
 	AuthRateLimitPerMinute   int
+	SMTPHost                 string
+	SMTPPort                 string
+	SMTPUser                 string
+	SMTPPassword             string
+	SMTPFrom                 string
 }
 
 func Load() (*Config, error) {
@@ -40,6 +45,11 @@ func Load() (*Config, error) {
 		GoogleServiceAccountFile: getEnvAllowEmpty("GOOGLE_SERVICE_ACCOUNT_FILE", "./credentials/google-service-account.json"),
 		GoogleDefaultWorksheet:   getEnv("GOOGLE_DEFAULT_WORKSHEET", "Sheet1"),
 		AuthRateLimitPerMinute:   getInt("AUTH_RATE_LIMIT_PER_MINUTE", 30),
+		SMTPHost:                 getEnvAllowEmpty("SMTP_HOST", ""),
+		SMTPPort:                 getEnv("SMTP_PORT", "587"),
+		SMTPUser:                 getEnvAllowEmpty("SMTP_USER", ""),
+		SMTPPassword:             getEnvAllowEmpty("SMTP_PASSWORD", ""),
+		SMTPFrom:                 getEnvAllowEmpty("SMTP_FROM", ""),
 	}
 
 	if cfg.AccessTokenSecret == "" {

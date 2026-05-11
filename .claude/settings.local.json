@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build *)",
+      "PowerShell(curl.exe -X POST \"http://localhost:8080/auth/forgot-password\" -H \"Content-Type: application/json\" -d $body)",
+      "PowerShell($body = '{\"email\":\"gulyachinaalan@gmail.com\"}')",
+      "PowerShell(docker compose -f back/docker-compose.yml ps 2>&1)",
+      "PowerShell(docker compose ps 2>&1)",
+      "PowerShell(docker exec esports_redis redis-cli GET \"rate:auth:172.18.0.1\" 2>&1)",
+      "PowerShell(docker exec esports_redis redis-cli TTL \"rate:auth:172.18.0.1\" 2>&1)"
+    ]
+  }
+}

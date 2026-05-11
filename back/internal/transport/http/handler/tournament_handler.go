@@ -7,6 +7,7 @@ import (
 
 	"esports-backend/internal/apperror"
 	"esports-backend/internal/entity"
+	"esports-backend/internal/repository"
 	"esports-backend/internal/service"
 
 	"github.com/go-chi/chi/v5"
@@ -43,12 +44,18 @@ type addManagerRequest struct {
 
 func (h *TournamentHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
 	limit, offset := pageParams(r)
-	items, err := h.deps.Tournaments.ListPublic(r.Context(), limit, offset)
+	f := repository.TournamentFilter{
+		Status:     r.URL.Query().Get("status"),
+		Format:     r.URL.Query().Get("format"),
+		Discipline: r.URL.Query().Get("discipline"),
+		Query:      r.URL.Query().Get("q"),
+	}
+	items, total, err := h.deps.Tournaments.ListPublic(r.Context(), limit, offset, f)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"items": items})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"items": items, "total": total})
 }
 
 func (h *TournamentHandler) GetPublic(w http.ResponseWriter, r *http.Request) {

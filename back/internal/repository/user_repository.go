@@ -127,6 +127,12 @@ func (r *UserRepository) ListUsers(ctx context.Context, limit, offset int) ([]en
 	return result, rows.Err()
 }
 
+func (r *UserRepository) CountUsers(ctx context.Context) (int, error) {
+	var n int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE deleted_at IS NULL`).Scan(&n)
+	return n, err
+}
+
 func (r *UserRepository) SetBlocked(ctx context.Context, userID string, blocked bool) error {
 	_, err := r.db.Exec(ctx, `UPDATE users SET is_blocked=$2, updated_at=now() WHERE id=$1 AND deleted_at IS NULL`, userID, blocked)
 	return err

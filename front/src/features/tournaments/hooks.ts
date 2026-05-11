@@ -7,10 +7,19 @@ import type {
   TournamentStatusFormValues,
 } from "@/features/tournaments/schemas";
 
-export function useTournaments() {
+export type TournamentListParams = {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  format?: string;
+  discipline?: string;
+  q?: string;
+};
+
+export function useTournaments(params?: TournamentListParams) {
   return useQuery({
-    queryKey: queryKeys.tournaments,
-    queryFn: tournamentsApi.list,
+    queryKey: [...queryKeys.tournaments, params],
+    queryFn: () => tournamentsApi.list(params),
   });
 }
 

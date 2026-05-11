@@ -10,9 +10,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(cfg *config.Config, deps handler.Deps) http.Handler {
+func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(mw.RequestID)
@@ -40,7 +41,7 @@ func NewRouter(cfg *config.Config, deps handler.Deps) http.Handler {
 	auditHandler := handler.NewAuditHandler(deps)
 	adminHandler := handler.NewAdminHandler(deps)
 
-	authLimiter := mw.NewRateLimiter(cfg.AuthRateLimitPerMinute, cfg.AuthRateLimitPerMinute/2+1)
+	authLimiter := mw.NewRateLimiter(rdb, cfg.AuthRateLimitPerMinute)
 	r.Route("/auth", func(ar chi.Router) {
 		ar.Use(authLimiter.Middleware)
 		ar.Post("/register", authHandler.Register)

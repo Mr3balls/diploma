@@ -46,8 +46,8 @@ function sanitizeTournamentPayload(payload: TournamentFormValues) {
 }
 
 export const tournamentsApi = {
-  async list() {
-    const { data } = await apiClient.get<ListResponse<Tournament>>("/tournaments");
+  async list(params?: { limit?: number; offset?: number; status?: string; format?: string; discipline?: string; q?: string }) {
+    const { data } = await apiClient.get<ListResponse<Tournament>>("/tournaments", { params });
     return data;
   },
 

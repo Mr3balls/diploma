@@ -17,13 +17,14 @@ import (
 
 type AuthService struct {
 	cfg      *config.Config
-	users    *repository.UserRepository
-	sessions *repository.SessionRepository
-	audit    *repository.AuditRepository
+	users    repository.UserStore
+	sessions repository.SessionStore
+	audit    repository.AuditStore
+	email    *EmailService
 }
 
-func NewAuthService(cfg *config.Config, users *repository.UserRepository, sessions *repository.SessionRepository, audit *repository.AuditRepository) *AuthService {
-	return &AuthService{cfg: cfg, users: users, sessions: sessions, audit: audit}
+func NewAuthService(cfg *config.Config, users repository.UserStore, sessions repository.SessionStore, audit repository.AuditStore, email *EmailService) *AuthService {
+	return &AuthService{cfg: cfg, users: users, sessions: sessions, audit: audit, email: email}
 }
 
 type RegisterInput struct {
@@ -142,12 +143,10 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error 
 	return s.sessions.RevokeByHash(ctx, tok.HashRefreshToken(rawRefreshToken))
 }
 
-func (s *AuthService) ForgotPassword(_ context.Context, email string) map[string]string {
-	return map[string]string{
-		"message":    "Demo mode: password reset email is not enabled in MVP.",
-		"email":      email,
-		"demo_token": s.cfg.PasswordResetDemoToken,
-	}
+func (s *AuthService) ForgotPassword(_ context.Context, userEmail string) map[string]string {
+	token := s.cfg.PasswordResetDemoToken
+	go s.email.SendPasswordReset(userEmail, token)
+	return map[string]string{"message": "Если аккаунт с таким email существует, письмо со сбросом пароля отправлено."}
 }
 
 func (s *AuthService) ResetPassword(_ context.Context, token string, _ string) map[string]string {

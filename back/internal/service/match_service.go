@@ -17,13 +17,15 @@ type MatchService struct {
 	tournaments   *TournamentService
 	brackets      *repository.BracketRepository
 	teams         *repository.TeamRepository
+	users         repository.UserStore
 	notifications *repository.NotificationRepository
 	audits        *repository.AuditRepository
 	bracketFlow   *BracketService
+	email         *EmailService
 }
 
-func NewMatchService(tournaments *TournamentService, brackets *repository.BracketRepository, teams *repository.TeamRepository, notifications *repository.NotificationRepository, audits *repository.AuditRepository, bracketFlow *BracketService) *MatchService {
-	return &MatchService{tournaments: tournaments, brackets: brackets, teams: teams, notifications: notifications, audits: audits, bracketFlow: bracketFlow}
+func NewMatchService(tournaments *TournamentService, brackets *repository.BracketRepository, teams *repository.TeamRepository, users repository.UserStore, notifications *repository.NotificationRepository, audits *repository.AuditRepository, bracketFlow *BracketService, email *EmailService) *MatchService {
+	return &MatchService{tournaments: tournaments, brackets: brackets, teams: teams, users: users, notifications: notifications, audits: audits, bracketFlow: bracketFlow, email: email}
 }
 
 type ScheduleMatchInput struct {
@@ -56,6 +58,20 @@ func (s *MatchService) Schedule(ctx context.Context, actorUserID, matchID string
 	}
 	if err := s.notifyMatchTeams(ctx, match, entity.NotificationMatchTimeChanged, "Время матча обновлено", "Менеджер обновил данные матча"); err != nil {
 		return err
+	}
+	if in.ScheduledAt != nil {
+		tournament, _ := s.tournaments.GetTournament(ctx, match.TournamentID)
+		go s.emailMatchTeams(match, func(email, _ string) {
+			loc := ""
+			if in.LocationOrServer != nil {
+				loc = *in.LocationOrServer
+			}
+			title := ""
+			if tournament != nil {
+				title = tournament.Title
+			}
+			s.email.SendMatchScheduled(email, title, *in.ScheduledAt, loc)
+		})
 	}
 	return nil
 }
@@ -129,7 +145,11 @@ func (s *MatchService) AdminSetResult(ctx context.Context, actorUserID, matchID 
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "admin_set_result", Description: "Admin directly set match result", MetadataJSON: xjson.MustMarshal(map[string]string{"winner_team_id": in.WinnerTeamID})})
-	return s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, "Победитель матча установлен", "Менеджер установил победителя матча")
+	if err := s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, "Победитель матча установлен", "Менеджер установил победителя матча"); err != nil {
+		return err
+	}
+	s.sendResultConfirmedEmail(ctx, match)
+	return nil
 }
 
 func (s *MatchService) ApproveResult(ctx context.Context, actorUserID, matchID string) error {
@@ -155,7 +175,11 @@ func (s *MatchService) ApproveResult(ctx context.Context, actorUserID, matchID s
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "result_approved", Description: "Match result approved", MetadataJSON: xjson.MustMarshal(map[string]string{"winner_team_id": *match.WinnerTeamID})})
-	return s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, "Результат матча подтвержден", "Менеджер подтвердил результат матча")
+	if err := s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, "Результат матча подтвержден", "Менеджер подтвердил результат матча"); err != nil {
+		return err
+	}
+	s.sendResultConfirmedEmail(ctx, match)
+	return nil
 }
 
 func (s *MatchService) RejectResult(ctx context.Context, actorUserID, matchID string) error {
@@ -268,4 +292,45 @@ func (s *MatchService) notifyMatchTeams(ctx context.Context, match *entity.Match
 		}
 	}
 	return nil
+}
+
+// emailMatchTeams looks up user emails for all team members in a match and calls fn for each.
+func (s *MatchService) emailMatchTeams(match *entity.Match, fn func(email, userID string)) {
+	ctx := context.Background()
+	for _, teamID := range []*string{match.Team1ID, match.Team2ID} {
+		if teamID == nil {
+			continue
+		}
+		members, err := s.teams.ListMembersByTeamID(ctx, *teamID)
+		if err != nil {
+			continue
+		}
+		for _, member := range members {
+			if member.UserID == nil {
+				continue
+			}
+			user, err := s.users.GetByID(ctx, *member.UserID)
+			if err != nil || user.Email == "" {
+				continue
+			}
+			fn(user.Email, user.ID)
+		}
+	}
+}
+
+func (s *MatchService) sendResultConfirmedEmail(ctx context.Context, match *entity.Match) {
+	if match.WinnerTeamID == nil {
+		return
+	}
+	tournament, err := s.tournaments.GetTournament(ctx, match.TournamentID)
+	if err != nil {
+		return
+	}
+	winnerName := *match.WinnerTeamID
+	if team, err := s.teams.GetTeamByID(ctx, *match.WinnerTeamID); err == nil {
+		winnerName = team.Name
+	}
+	go s.emailMatchTeams(match, func(email, _ string) {
+		s.email.SendResultConfirmed(email, tournament.Title, winnerName)
+	})
 }

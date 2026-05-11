@@ -18,13 +18,14 @@ import (
 type TeamService struct {
 	tournaments   *TournamentService
 	teams         *repository.TeamRepository
-	users         *repository.UserRepository
+	users         repository.UserStore
 	notifications *repository.NotificationRepository
 	audits        *repository.AuditRepository
+	email         *EmailService
 }
 
-func NewTeamService(tournaments *TournamentService, teams *repository.TeamRepository, users *repository.UserRepository, notifications *repository.NotificationRepository, audits *repository.AuditRepository) *TeamService {
-	return &TeamService{tournaments: tournaments, teams: teams, users: users, notifications: notifications, audits: audits}
+func NewTeamService(tournaments *TournamentService, teams *repository.TeamRepository, users repository.UserStore, notifications *repository.NotificationRepository, audits *repository.AuditRepository, email *EmailService) *TeamService {
+	return &TeamService{tournaments: tournaments, teams: teams, users: users, notifications: notifications, audits: audits, email: email}
 }
 
 type TeamDetails struct {
@@ -102,9 +103,11 @@ func (s *TeamService) RegisterTeam(ctx context.Context, tournamentID string, in 
 		if nickname == "" {
 			continue
 		}
+		var userEmail string
 		var userID *string
 		if u, err := s.users.GetByNickname(ctx, nickname); err == nil {
 			userID = &u.ID
+			userEmail = u.Email
 		}
 		member := &entity.TeamMember{
 			ID:                 uuid.NewString(),
@@ -118,6 +121,9 @@ func (s *TeamService) RegisterTeam(ctx context.Context, tournamentID string, in 
 		}
 		if err := s.teams.CreateMember(ctx, member); err != nil {
 			return nil, err
+		}
+		if userEmail != "" && tournament != nil {
+			go s.email.SendTeamInvite(userEmail, team.Name, tournament.Title)
 		}
 	}
 

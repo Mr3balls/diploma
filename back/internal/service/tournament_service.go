@@ -13,13 +13,13 @@ import (
 )
 
 type TournamentService struct {
-	tournaments *repository.TournamentRepository
-	teams       *repository.TeamRepository
-	brackets    *repository.BracketRepository
-	audits      *repository.AuditRepository
+	tournaments repository.TournamentStore
+	teams       repository.TeamStore
+	brackets    repository.BracketStore
+	audits      repository.AuditStore
 }
 
-func NewTournamentService(tournaments *repository.TournamentRepository, teams *repository.TeamRepository, brackets *repository.BracketRepository, audits *repository.AuditRepository) *TournamentService {
+func NewTournamentService(tournaments repository.TournamentStore, teams repository.TeamStore, brackets repository.BracketStore, audits repository.AuditStore) *TournamentService {
 	return &TournamentService{tournaments: tournaments, teams: teams, brackets: brackets, audits: audits}
 }
 
@@ -38,8 +38,16 @@ type CreateTournamentInput struct {
 	RegistrationMode     string // "team" | "individual"
 }
 
-func (s *TournamentService) ListPublic(ctx context.Context, limit, offset int) ([]entity.Tournament, error) {
-	return s.tournaments.ListPublic(ctx, limit, offset)
+func (s *TournamentService) ListPublic(ctx context.Context, limit, offset int, f repository.TournamentFilter) ([]entity.Tournament, int, error) {
+	items, err := s.tournaments.ListPublic(ctx, limit, offset, f)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := s.tournaments.CountPublic(ctx, f)
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
 }
 
 func (s *TournamentService) GetPublic(ctx context.Context, tournamentID, requesterID string) (*entity.Tournament, error) {

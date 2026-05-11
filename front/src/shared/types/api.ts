@@ -245,6 +245,7 @@ export type AuthResponse = {
 
 export type ListResponse<T> = {
   items: T[];
+  total: number;
 };
 
 export type TournamentBracketResponse = {

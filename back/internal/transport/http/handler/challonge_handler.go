@@ -110,7 +110,7 @@ func (h *ChallongeHandler) CreateTournament(w http.ResponseWriter, r *http.Reque
 	}
 	var req service.CreateChallongeTournamentReq
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, apperror.BadRequest("invalid_body", err.Error(), nil))
+		writeError(w, err)
 		return
 	}
 	t, err := h.svc.CreateTournament(r.Context(), u.UserID, req)
@@ -183,7 +183,7 @@ func (h *ChallongeHandler) AddParticipant(w http.ResponseWriter, r *http.Request
 	}
 	var req service.AddParticipantReq
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, apperror.BadRequest("invalid_body", err.Error(), nil))
+		writeError(w, err)
 		return
 	}
 	p, err := h.svc.AddParticipant(r.Context(), t.ID, u.UserID, req)
@@ -211,7 +211,7 @@ func (h *ChallongeHandler) BulkAddParticipants(w http.ResponseWriter, r *http.Re
 		Names []string `json:"names"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeError(w, apperror.BadRequest("invalid_body", err.Error(), nil))
+		writeError(w, err)
 		return
 	}
 	ps, err := h.svc.BulkAddParticipants(r.Context(), t.ID, u.UserID, body.Names)
@@ -280,7 +280,7 @@ func (h *ChallongeHandler) ReorderParticipants(w http.ResponseWriter, r *http.Re
 		Seeds []service.ParticipantSeedItem `json:"seeds"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeError(w, apperror.BadRequest("invalid_body", err.Error(), nil))
+		writeError(w, err)
 		return
 	}
 	if err := h.svc.ReorderParticipants(r.Context(), t.ID, u.UserID, body.Seeds); err != nil {
@@ -366,7 +366,7 @@ func (h *ChallongeHandler) SubmitResult(w http.ResponseWriter, r *http.Request) 
 	matchID := chi.URLParam(r, "matchID")
 	var req service.SubmitResultReq
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, apperror.BadRequest("invalid_body", err.Error(), nil))
+		writeError(w, err)
 		return
 	}
 	if err := h.svc.SubmitResult(r.Context(), t.ID, matchID, u.UserID, req); err != nil {
@@ -433,7 +433,7 @@ func (h *ChallongeHandler) InviteCoOrganizer(w http.ResponseWriter, r *http.Requ
 	}
 	var req service.InviteCoOrgReq
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, apperror.BadRequest("invalid_body", err.Error(), nil))
+		writeError(w, err)
 		return
 	}
 	inv, err := h.svc.InviteCoOrganizer(r.Context(), t.ID, u.UserID, req)
@@ -480,7 +480,7 @@ func (h *ChallongeHandler) ReportResult(w http.ResponseWriter, r *http.Request) 
 	matchID := chi.URLParam(r, "matchID")
 	var req service.SubmitResultReq
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, apperror.BadRequest("invalid_body", err.Error(), nil))
+		writeError(w, err)
 		return
 	}
 	rr, err := h.svc.ReportResult(r.Context(), t.ID, matchID, u.UserID, req)

@@ -31,12 +31,12 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, offset := pageParams(r)
-	items, err := h.deps.Admin.ListUsers(r.Context(), limit, offset)
+	result, err := h.deps.Admin.ListUsers(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"items": items})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"items": result.Items, "total": result.Total})
 }
 
 func (h *AdminHandler) BlockUser(w http.ResponseWriter, r *http.Request) {
@@ -71,10 +71,10 @@ func (h *AdminHandler) ListTournaments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, offset := pageParams(r)
-	items, err := h.deps.Admin.ListTournaments(r.Context(), limit, offset)
+	result, err := h.deps.Admin.ListTournaments(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"items": items})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"items": result.Items, "total": result.Total})
 }
