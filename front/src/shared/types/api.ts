@@ -10,7 +10,7 @@ export type TournamentStatus =
   | "completed";
 
 export type TournamentVisibility = "public" | "private";
-export type TournamentFormat = "single_elimination" | "double_elimination" | "group_stage";
+export type TournamentFormat = "single_elimination" | "double_elimination" | "group_stage" | "group_de";
 
 export type TeamStatus =
   | "pending"
@@ -117,6 +117,8 @@ export type Tournament = {
   status: TournamentStatus;
   visibility: "public" | "private";
   registration_mode?: TournamentRegistrationMode;
+  winner_team_id?: string | null;
+  winner_participant_id?: string | null;
   owner_user_id: string;
   created_at: string;
   updated_at: string;
@@ -185,6 +187,8 @@ export type Bracket = {
   id?: string;
   tournament_id?: string;
   type?: "single_elimination" | string;
+  format?: TournamentFormat | string;
+  status?: "active" | "playoff" | string;
   generated_at?: string | null;
 };
 
@@ -210,6 +214,7 @@ export type Match = {
   location_or_server?: string | null;
   next_match_id?: string | null;
   is_bye?: boolean;
+  group_id?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -248,8 +253,29 @@ export type ListResponse<T> = {
   total: number;
 };
 
+export type BracketGroupMember = {
+  id: string;
+  group_id: string;
+  team_id: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  points: number;
+  qualified_position?: number | null;
+};
+
+export type BracketGroup = {
+  id: string;
+  bracket_id: string;
+  tournament_id: string;
+  name: string;
+  position: number;
+  members: BracketGroupMember[];
+};
+
 export type TournamentBracketResponse = {
   bracket: Bracket;
+  groups?: BracketGroup[];
   matches: Match[];
 };
 

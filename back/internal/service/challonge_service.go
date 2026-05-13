@@ -416,6 +416,20 @@ func (s *ChallongeService) SubmitResult(ctx context.Context, tournamentID, match
 	return nil
 }
 
+// AdminSetParticipantResult lets an organizer directly set the result of an individual-mode match.
+// Permission check is expected to be performed by the caller.
+func (s *ChallongeService) AdminSetParticipantResult(ctx context.Context, matchID, actorID, winnerParticipantID string) error {
+	m, err := s.bracketRepo.GetMatchByID(ctx, matchID)
+	if err != nil {
+		return apperror.NotFound("match not found")
+	}
+	return s.SubmitResult(ctx, m.TournamentID, matchID, actorID, SubmitResultReq{
+		WinnerID: winnerParticipantID,
+		Score1:   1,
+		Score2:   0,
+	})
+}
+
 func (s *ChallongeService) ResetMatch(ctx context.Context, tournamentID, matchID, actorID string) error {
 	t, err := s.getTournament(ctx, tournamentID)
 	if err != nil {

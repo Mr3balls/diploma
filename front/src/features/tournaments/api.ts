@@ -42,6 +42,8 @@ function sanitizeTournamentPayload(payload: TournamentFormValues) {
     start_at: toIsoOrUndefined(payload.start_at),
     visibility: payload.visibility,
     registration_mode: payload.registration_mode ?? "team",
+    format: payload.format ?? "single_elimination",
+    group_count: (payload.format === "group_stage" || payload.format === "group_de") ? payload.group_count : undefined,
   };
 }
 

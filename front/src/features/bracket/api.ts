@@ -18,4 +18,8 @@ export const bracketApi = {
     const { data } = await apiClient.post<TournamentBracketResponse>(`/tournaments/${tournamentId}/bracket/reseed`, payload);
     return data;
   },
+  async advanceToPlayoff(tournamentId: string) {
+    const { data } = await apiClient.post<TournamentBracketResponse>(`/tournaments/${tournamentId}/bracket/advance-to-playoff`);
+    return data;
+  },
 };

@@ -16,6 +16,7 @@ import (
 type MatchService struct {
 	tournaments   *TournamentService
 	brackets      *repository.BracketRepository
+	groups        *repository.GroupRepository
 	teams         *repository.TeamRepository
 	users         repository.UserStore
 	notifications *repository.NotificationRepository
@@ -24,8 +25,8 @@ type MatchService struct {
 	email         *EmailService
 }
 
-func NewMatchService(tournaments *TournamentService, brackets *repository.BracketRepository, teams *repository.TeamRepository, users repository.UserStore, notifications *repository.NotificationRepository, audits *repository.AuditRepository, bracketFlow *BracketService, email *EmailService) *MatchService {
-	return &MatchService{tournaments: tournaments, brackets: brackets, teams: teams, users: users, notifications: notifications, audits: audits, bracketFlow: bracketFlow, email: email}
+func NewMatchService(tournaments *TournamentService, brackets *repository.BracketRepository, groups *repository.GroupRepository, teams *repository.TeamRepository, users repository.UserStore, notifications *repository.NotificationRepository, audits *repository.AuditRepository, bracketFlow *BracketService, email *EmailService) *MatchService {
+	return &MatchService{tournaments: tournaments, brackets: brackets, groups: groups, teams: teams, users: users, notifications: notifications, audits: audits, bracketFlow: bracketFlow, email: email}
 }
 
 type ScheduleMatchInput struct {
@@ -141,7 +142,7 @@ func (s *MatchService) AdminSetResult(ctx context.Context, actorUserID, matchID 
 	if err := s.brackets.UpdateMatchState(ctx, match); err != nil {
 		return err
 	}
-	if err := s.bracketFlow.PropagateWinner(ctx, actorUserID, match.ID); err != nil {
+	if err := s.propagateOrUpdateStats(ctx, actorUserID, match); err != nil {
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "admin_set_result", Description: "Admin directly set match result", MetadataJSON: xjson.MustMarshal(map[string]string{"winner_team_id": in.WinnerTeamID})})
@@ -171,7 +172,7 @@ func (s *MatchService) ApproveResult(ctx context.Context, actorUserID, matchID s
 	if err := s.brackets.UpdateMatchState(ctx, match); err != nil {
 		return err
 	}
-	if err := s.bracketFlow.PropagateWinner(ctx, actorUserID, match.ID); err != nil {
+	if err := s.propagateOrUpdateStats(ctx, actorUserID, match); err != nil {
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "result_approved", Description: "Match result approved", MetadataJSON: xjson.MustMarshal(map[string]string{"winner_team_id": *match.WinnerTeamID})})
@@ -333,4 +334,31 @@ func (s *MatchService) sendResultConfirmedEmail(ctx context.Context, match *enti
 	go s.emailMatchTeams(match, func(email, _ string) {
 		s.email.SendResultConfirmed(email, tournament.Title, winnerName)
 	})
+}
+
+// propagateOrUpdateStats decides how to handle a finished match result:
+// - group_de group matches: propagate within the group DE bracket
+// - group_stage group matches: update round-robin standings only
+// - all other matches: propagate through the main bracket
+func (s *MatchService) propagateOrUpdateStats(ctx context.Context, actorUserID string, match *entity.Match) error {
+	if match.GroupID != nil {
+		br, _ := s.brackets.GetByTournamentID(ctx, match.TournamentID)
+		if br != nil && br.Format == "group_de" {
+			return s.bracketFlow.PropagateWinner(ctx, actorUserID, match.ID)
+		}
+		s.updateGroupStats(ctx, match)
+		return nil
+	}
+	return s.bracketFlow.PropagateWinner(ctx, actorUserID, match.ID)
+}
+
+func (s *MatchService) updateGroupStats(ctx context.Context, match *entity.Match) {
+	if match.GroupID == nil || match.WinnerTeamID == nil || match.Team1ID == nil || match.Team2ID == nil {
+		return
+	}
+	loserTeamID := *match.Team1ID
+	if *match.Team1ID == *match.WinnerTeamID {
+		loserTeamID = *match.Team2ID
+	}
+	_ = s.groups.RecordWin(ctx, *match.GroupID, *match.WinnerTeamID, loserTeamID)
 }

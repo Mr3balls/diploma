@@ -105,6 +105,7 @@ func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Ha
 		pr.Post("/tournaments/{id}/bracket/generate", bracketHandler.Generate)
 		pr.Post("/tournaments/{id}/bracket/regenerate", bracketHandler.Regenerate)
 		pr.Post("/tournaments/{id}/bracket/reseed", bracketHandler.Reseed)
+		pr.Post("/tournaments/{id}/bracket/advance-to-playoff", bracketHandler.AdvanceToPlayoff)
 		pr.Post("/matches/{id}/reset", bracketHandler.ResetMatch)
 
 		pr.Get("/tournaments/{id}/admin/matches", matchHandler.GetAdminMatches)

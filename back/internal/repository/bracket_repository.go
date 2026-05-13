@@ -67,7 +67,7 @@ func (r *BracketRepository) DeleteByTournamentID(ctx context.Context, tournament
 func (r *BracketRepository) CreateMatch(ctx context.Context, m *entity.Match) error {
 	_, err := r.db.Exec(ctx, `
         INSERT INTO matches (
-            id, tournament_id, bracket_id, bracket_section, round_number, slot_index,
+            id, tournament_id, bracket_id, group_id, bracket_section, round_number, slot_index,
             global_number,
             team1_id, team2_id, participant1_id, participant2_id,
             scheduled_at, location_or_server,
@@ -77,18 +77,18 @@ func (r *BracketRepository) CreateMatch(ctx context.Context, m *entity.Match) er
             loser_next_match_id, loser_next_slot,
             is_bye, deleted_at
         ) VALUES (
-            $1,$2,$3,$4,$5,$6,
-            $7,
-            $8,$9,$10,$11,
-            $12,$13,
-            $14,$15,$16,
-            $17,$18,$19,$20,
-            $21,$22,$23,
-            $24,$25,
-            $26,$27
+            $1,$2,$3,$4,$5,$6,$7,
+            $8,
+            $9,$10,$11,$12,
+            $13,$14,
+            $15,$16,$17,
+            $18,$19,$20,$21,
+            $22,$23,$24,
+            $25,$26,
+            $27,$28
         )
     `,
-		m.ID, m.TournamentID, m.BracketID, m.BracketSection, m.RoundNumber, m.SlotIndex,
+		m.ID, m.TournamentID, m.BracketID, m.GroupID, m.BracketSection, m.RoundNumber, m.SlotIndex,
 		m.GlobalNumber,
 		m.Team1ID, m.Team2ID, m.Participant1ID, m.Participant2ID,
 		m.ScheduledAt, m.LocationOrServer,
@@ -139,7 +139,7 @@ func (r *BracketRepository) UpdateMatchState(ctx context.Context, m *entity.Matc
 
 func (r *BracketRepository) GetMatchByID(ctx context.Context, matchID string) (*entity.Match, error) {
 	row := r.db.QueryRow(ctx, `
-        SELECT id, tournament_id, bracket_id, bracket_section, round_number, slot_index,
+        SELECT id, tournament_id, bracket_id, group_id, bracket_section, round_number, slot_index,
                COALESCE(global_number,0),
                team1_id, team2_id, participant1_id, participant2_id,
                scheduled_at, location_or_server,
@@ -155,7 +155,7 @@ func (r *BracketRepository) GetMatchByID(ctx context.Context, matchID string) (*
 
 func (r *BracketRepository) ListMatchesByTournament(ctx context.Context, tournamentID string) ([]entity.Match, error) {
 	rows, err := r.db.Query(ctx, `
-        SELECT id, tournament_id, bracket_id, bracket_section, round_number, slot_index,
+        SELECT id, tournament_id, bracket_id, group_id, bracket_section, round_number, slot_index,
                COALESCE(global_number,0),
                team1_id, team2_id, participant1_id, participant2_id,
                scheduled_at, location_or_server,
@@ -167,6 +167,7 @@ func (r *BracketRepository) ListMatchesByTournament(ctx context.Context, tournam
         FROM matches
         WHERE tournament_id=$1 AND deleted_at IS NULL
         ORDER BY
+            group_id NULLS LAST,
             CASE bracket_section WHEN 'WB' THEN 0 WHEN 'LB' THEN 1 WHEN 'GF' THEN 2 END,
             round_number ASC, slot_index ASC
     `, tournamentID)
@@ -190,7 +191,7 @@ func scanMatch(row interface {
 }) (*entity.Match, error) {
 	var m entity.Match
 	err := row.Scan(
-		&m.ID, &m.TournamentID, &m.BracketID, &m.BracketSection, &m.RoundNumber, &m.SlotIndex,
+		&m.ID, &m.TournamentID, &m.BracketID, &m.GroupID, &m.BracketSection, &m.RoundNumber, &m.SlotIndex,
 		&m.GlobalNumber,
 		&m.Team1ID, &m.Team2ID, &m.Participant1ID, &m.Participant2ID,
 		&m.ScheduledAt, &m.LocationOrServer,

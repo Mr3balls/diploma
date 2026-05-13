@@ -10,6 +10,7 @@ type TournamentStore interface {
 	Create(ctx context.Context, t *entity.Tournament) error
 	Update(ctx context.Context, t *entity.Tournament) error
 	SetStatus(ctx context.Context, id, status string) error
+	SetWinner(ctx context.Context, tournamentID string, winnerTeamID, winnerParticipantID *string) error
 	SoftDelete(ctx context.Context, id string) error
 	GetByID(ctx context.Context, id string) (*entity.Tournament, error)
 	GetBySlug(ctx context.Context, slug string) (*entity.Tournament, error)

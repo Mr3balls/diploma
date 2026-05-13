@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -44,9 +44,18 @@ export function CreateTournamentForm({
     },
   });
 
-  const { register, handleSubmit, formState, control } = form;
+  const { register, handleSubmit, formState, control, setValue } = form;
   const { errors } = formState;
   const selectedFormat = useWatch({ control, name: "format" });
+
+  useEffect(() => {
+    if (selectedFormat === "group_stage" || selectedFormat === "group_de") {
+      const current = form.getValues("group_count");
+      if (!current || ![2, 3, 4].includes(current)) {
+        setValue("group_count", 2);
+      }
+    }
+  }, [selectedFormat, setValue, form]);
 
   return (
     <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
@@ -67,6 +76,7 @@ export function CreateTournamentForm({
             <option value="single_elimination">Single Elimination</option>
             <option value="double_elimination">Double Elimination</option>
             <option value="group_stage">Групповой этап + Плей-офф</option>
+            <option value="group_de">Групп. DE + Плей-офф</option>
           </Select>
         </FormField>
 
@@ -78,10 +88,17 @@ export function CreateTournamentForm({
         </FormField>
       </div>
 
-      {selectedFormat === "group_stage" && (
-        <FormField label="Количество групп" error={errors.group_count?.message}>
+      {(selectedFormat === "group_stage" || selectedFormat === "group_de") && (
+        <FormField
+          label="Количество групп"
+          error={errors.group_count?.message}
+          hint={
+            selectedFormat === "group_de"
+              ? "Топ 3 из каждой группы (WB-финал победитель/проигравший + LB-финал победитель) выходят в плей-офф"
+              : "Топ 2 из каждой группы выходят в плей-офф"
+          }
+        >
           <Select {...register("group_count", { valueAsNumber: true })}>
-            <option value="">— выберите —</option>
             <option value="2">2 группы</option>
             <option value="3">3 группы</option>
             <option value="4">4 группы</option>

@@ -8,8 +8,8 @@ export const tournamentFormSchema = z
     rules: z.string().optional(),
     location: z.string().optional(),
     max_teams: z.coerce.number().min(2, "Минимум 2").max(128, "Максимум 128").optional(),
-    format: z.enum(["single_elimination", "double_elimination", "group_stage"]),
-    group_count: z.coerce.number().optional(),
+    format: z.enum(["single_elimination", "double_elimination", "group_stage", "group_de"]),
+    group_count: z.coerce.number().min(2).max(4).optional(),
     registration_deadline: z.string().optional(),
     start_at: z.string().optional(),
     visibility: z.enum(["public", "private"]),
@@ -17,7 +17,7 @@ export const tournamentFormSchema = z
   })
   .refine(
     (data) => {
-      if (data.format === "group_stage") {
+      if (data.format === "group_stage" || data.format === "group_de") {
         return data.group_count && [2, 3, 4].includes(data.group_count);
       }
       return true;

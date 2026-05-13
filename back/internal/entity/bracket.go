@@ -16,10 +16,31 @@ type Bracket struct {
 	MetadataJSON  json.RawMessage `json:"metadata_json"`
 }
 
+type BracketGroup struct {
+	ID           string               `json:"id"`
+	BracketID    string               `json:"bracket_id"`
+	TournamentID string               `json:"tournament_id"`
+	Name         string               `json:"name"`
+	Position     int                  `json:"position"`
+	Members      []BracketGroupMember `json:"members"`
+}
+
+type BracketGroupMember struct {
+	ID                string `json:"id"`
+	GroupID           string `json:"group_id"`
+	TeamID            string `json:"team_id"`
+	Wins              int    `json:"wins"`
+	Losses            int    `json:"losses"`
+	Draws             int    `json:"draws"`
+	Points            int    `json:"points"`
+	QualifiedPosition *int   `json:"qualified_position,omitempty"`
+}
+
 type Match struct {
 	ID                      string     `json:"id"`
 	TournamentID            string     `json:"tournament_id"`
 	BracketID               string     `json:"bracket_id"`
+	GroupID                 *string    `json:"group_id,omitempty"`
 	BracketSection          string     `json:"bracket_section"` // WB | LB | GF
 	RoundNumber             int        `json:"round_number"`
 	SlotIndex               int        `json:"slot_index"`

@@ -43,7 +43,7 @@ export const matchesApi = {
     const { data } = await apiClient.post<GenericMessageResponse>(`/matches/${matchId}/reject-result`, payload ?? {});
     return data;
   },
-  async adminSetResult(matchId: string, payload: { winner_team_id: string; score_text?: string }) {
+  async adminSetResult(matchId: string, payload: { winner_team_id?: string; winner_participant_id?: string; score_text?: string }) {
     const { data } = await apiClient.post<GenericMessageResponse>(`/matches/${matchId}/admin-set-result`, payload);
     return data;
   },

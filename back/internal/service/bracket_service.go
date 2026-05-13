@@ -20,6 +20,7 @@ type BracketService struct {
 	pool          *pgxpool.Pool
 	tournaments   *TournamentService
 	brackets      *repository.BracketRepository
+	groups        *repository.GroupRepository
 	teams         *repository.TeamRepository
 	notifications *repository.NotificationRepository
 	audits        *repository.AuditRepository
@@ -29,6 +30,7 @@ func NewBracketService(
 	pool *pgxpool.Pool,
 	tournaments *TournamentService,
 	brackets *repository.BracketRepository,
+	groups *repository.GroupRepository,
 	teams *repository.TeamRepository,
 	notifications *repository.NotificationRepository,
 	audits *repository.AuditRepository,
@@ -37,6 +39,7 @@ func NewBracketService(
 		pool:          pool,
 		tournaments:   tournaments,
 		brackets:      brackets,
+		groups:        groups,
 		teams:         teams,
 		notifications: notifications,
 		audits:        audits,
@@ -116,6 +119,7 @@ func (s *BracketService) Generate(
 	defer tx.Rollback(ctx)
 
 	txBracketRepo := repository.NewBracketRepository(tx)
+	txGroupRepo := repository.NewGroupRepository(tx)
 	if regenerate {
 		if err := txBracketRepo.DeleteByTournamentID(ctx, tournamentID); err != nil {
 			return nil, nil, err
@@ -134,6 +138,34 @@ func (s *BracketService) Generate(
 	}
 	if err := txBracketRepo.CreateBracket(ctx, br); err != nil {
 		return nil, nil, err
+	}
+
+	if format == "group_stage" || format == "group_de" {
+		var createFn func(context.Context, *entity.Tournament, *entity.Bracket, []string, *repository.GroupRepository, *repository.BracketRepository) error
+		if format == "group_stage" {
+			createFn = s.createGroupStage
+		} else {
+			createFn = s.createGroupDE
+		}
+		if err := createFn(ctx, tournament, br, teamIDs, txGroupRepo, txBracketRepo); err != nil {
+			return nil, nil, err
+		}
+		if err := s.tournaments.tournaments.SetStatus(ctx, tournamentID,
+			entity.TournamentStatusBracketGenerated); err != nil {
+			return nil, nil, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, nil, err
+		}
+		storedBracket, err := s.brackets.GetByTournamentID(ctx, tournamentID)
+		if err != nil {
+			return nil, nil, err
+		}
+		storedMatches, err := s.brackets.ListMatchesByTournament(ctx, tournamentID)
+		if err != nil {
+			return nil, nil, err
+		}
+		return storedBracket, storedMatches, nil
 	}
 
 	matches, err := buildEntityMatches(tournamentID, br.ID, format, teamIDs)
@@ -345,16 +377,356 @@ func clearTeamFromMatch(m *entity.Match, teamID string) {
 	}
 }
 
-func (s *BracketService) GetBracket(ctx context.Context, tournamentID string) (*entity.Bracket, []entity.Match, error) {
+type TeamBracketResponse struct {
+	Bracket *entity.Bracket       `json:"bracket"`
+	Groups  []entity.BracketGroup `json:"groups,omitempty"`
+	Matches []entity.Match        `json:"matches"`
+}
+
+func (s *BracketService) GetBracket(ctx context.Context, tournamentID string) (*TeamBracketResponse, error) {
 	br, err := s.brackets.GetByTournamentID(ctx, tournamentID)
 	if err != nil {
-		return nil, nil, apperror.NotFound("bracket not found")
+		return nil, apperror.NotFound("bracket not found")
 	}
 	matches, err := s.brackets.ListMatchesByTournament(ctx, tournamentID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return br, matches, nil
+	resp := &TeamBracketResponse{Bracket: br, Matches: matches}
+	if br.Format == "group_stage" || br.Format == "group_de" {
+		groups, err := s.groups.ListByBracketID(ctx, br.ID)
+		if err != nil {
+			return nil, err
+		}
+		resp.Groups = groups
+	}
+	return resp, nil
+}
+
+// createGroupStage generates groups and round-robin matches inside a transaction.
+func (s *BracketService) createGroupStage(ctx context.Context, tournament *entity.Tournament, br *entity.Bracket, teamIDs []string, txGroupRepo *repository.GroupRepository, txBracketRepo *repository.BracketRepository) error {
+	groupCount := 2
+	if tournament.GroupCount != nil && *tournament.GroupCount >= 2 {
+		groupCount = *tournament.GroupCount
+	}
+
+	groupNames := []string{"A", "B", "C", "D"}
+	// Distribute teams evenly across groups
+	groups := make([]*entity.BracketGroup, groupCount)
+	for i := 0; i < groupCount; i++ {
+		g := &entity.BracketGroup{
+			ID:           uuid.NewString(),
+			BracketID:    br.ID,
+			TournamentID: tournament.ID,
+			Name:         "Группа " + groupNames[i],
+			Position:     i,
+		}
+		if err := txGroupRepo.CreateGroup(ctx, g); err != nil {
+			return err
+		}
+		groups[i] = g
+	}
+
+	// Assign teams to groups (snake draft: 0,1,2,3,3,2,1,0,0,...)
+	groupMembers := make([][]string, groupCount)
+	for i, teamID := range teamIDs {
+		gIdx := i % groupCount
+		member := &entity.BracketGroupMember{
+			ID:      uuid.NewString(),
+			GroupID: groups[gIdx].ID,
+			TeamID:  teamID,
+		}
+		if err := txGroupRepo.CreateMember(ctx, member); err != nil {
+			return err
+		}
+		groupMembers[gIdx] = append(groupMembers[gIdx], teamID)
+	}
+
+	// Generate round-robin matches within each group
+	globalNum := 1
+	for gIdx, members := range groupMembers {
+		groupID := groups[gIdx].ID
+		round := 1
+		for i := 0; i < len(members); i++ {
+			for j := i + 1; j < len(members); j++ {
+				t1 := members[i]
+				t2 := members[j]
+				m := &entity.Match{
+					ID:                      uuid.NewString(),
+					TournamentID:            tournament.ID,
+					BracketID:               br.ID,
+					GroupID:                 &groupID,
+					BracketSection:          "WB",
+					RoundNumber:             round,
+					SlotIndex:               j - i,
+					GlobalNumber:            globalNum,
+					Team1ID:                 &t1,
+					Team2ID:                 &t2,
+					Status:                  entity.MatchStatusScheduled,
+					Team1ConfirmationStatus: entity.MatchTeamConfirmationPending,
+					Team2ConfirmationStatus: entity.MatchTeamConfirmationPending,
+				}
+				if err := txBracketRepo.CreateMatch(ctx, m); err != nil {
+					return err
+				}
+				globalNum++
+				round++
+			}
+		}
+	}
+	return nil
+}
+
+// createGroupDE generates a double-elimination sub-bracket (WB + LB, no GF)
+// for each group and inserts all matches tagged with the group's ID.
+func (s *BracketService) createGroupDE(ctx context.Context, tournament *entity.Tournament, br *entity.Bracket, teamIDs []string, txGroupRepo *repository.GroupRepository, txBracketRepo *repository.BracketRepository) error {
+	groupCount := 2
+	if tournament.GroupCount != nil && *tournament.GroupCount >= 2 {
+		groupCount = *tournament.GroupCount
+	}
+
+	groupNames := []string{"A", "B", "C", "D"}
+	groups := make([]*entity.BracketGroup, groupCount)
+	for i := 0; i < groupCount; i++ {
+		g := &entity.BracketGroup{
+			ID:           uuid.NewString(),
+			BracketID:    br.ID,
+			TournamentID: tournament.ID,
+			Name:         "Группа " + groupNames[i],
+			Position:     i,
+		}
+		if err := txGroupRepo.CreateGroup(ctx, g); err != nil {
+			return err
+		}
+		groups[i] = g
+	}
+
+	// Distribute teams using simple modulo (0,1,2,...,g-1,0,1,...).
+	groupMembers := make([][]string, groupCount)
+	for i, teamID := range teamIDs {
+		gIdx := i % groupCount
+		member := &entity.BracketGroupMember{
+			ID:      uuid.NewString(),
+			GroupID: groups[gIdx].ID,
+			TeamID:  teamID,
+		}
+		if err := txGroupRepo.CreateMember(ctx, member); err != nil {
+			return err
+		}
+		groupMembers[gIdx] = append(groupMembers[gIdx], teamID)
+	}
+
+	// Generate a DE sub-bracket for each group.
+	for gIdx, members := range groupMembers {
+		groupID := groups[gIdx].ID
+		nodes, _, _, err := bracket.BuildGroupDE(len(members))
+		if err != nil {
+			return err
+		}
+
+		uuidByIdx := make(map[int]string, len(nodes))
+		for _, n := range nodes {
+			uuidByIdx[n.Index] = uuid.NewString()
+		}
+
+		matches := make([]*entity.Match, 0, len(nodes))
+		for _, n := range nodes {
+			m := &entity.Match{
+				ID:                      uuidByIdx[n.Index],
+				TournamentID:            tournament.ID,
+				BracketID:               br.ID,
+				GroupID:                 &groupID,
+				BracketSection:          string(n.Section),
+				RoundNumber:             n.Round,
+				SlotIndex:               n.Slot,
+				IsBye:                   n.IsBye,
+				Status:                  entity.MatchStatusScheduled,
+				Team1ConfirmationStatus: entity.MatchTeamConfirmationPending,
+				Team2ConfirmationStatus: entity.MatchTeamConfirmationPending,
+			}
+			if n.Seed1 > 0 {
+				id := members[n.Seed1-1]
+				m.Team1ID = &id
+			}
+			if n.Seed2 > 0 {
+				id := members[n.Seed2-1]
+				m.Team2ID = &id
+			}
+			if n.Src1 >= 0 {
+				id := uuidByIdx[n.Src1]
+				m.SourceMatch1ID = &id
+			}
+			if n.Src2 >= 0 {
+				id := uuidByIdx[n.Src2]
+				m.SourceMatch2ID = &id
+			}
+			if n.WinNext >= 0 {
+				id := uuidByIdx[n.WinNext]
+				m.NextMatchID = &id
+			}
+			if n.LoseNext >= 0 {
+				id := uuidByIdx[n.LoseNext]
+				m.LoserNextMatchID = &id
+				m.LoserNextSlot = n.LoseSlot
+			}
+			matches = append(matches, m)
+		}
+
+		// Phase 1: insert without self-referential FK columns.
+		for _, m := range matches {
+			nextID, src1ID, src2ID, loseNextID, loseSlot := m.NextMatchID, m.SourceMatch1ID, m.SourceMatch2ID, m.LoserNextMatchID, m.LoserNextSlot
+			m.NextMatchID, m.SourceMatch1ID, m.SourceMatch2ID, m.LoserNextMatchID = nil, nil, nil, nil
+			if err := txBracketRepo.CreateMatch(ctx, m); err != nil {
+				return err
+			}
+			m.NextMatchID, m.SourceMatch1ID, m.SourceMatch2ID, m.LoserNextMatchID, m.LoserNextSlot = nextID, src1ID, src2ID, loseNextID, loseSlot
+		}
+
+		// Phase 2: propagate byes + write FK references.
+		propagateByes(matches)
+		for _, m := range matches {
+			if err := txBracketRepo.UpdateMatchState(ctx, m); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// AdvanceToPlayoff takes qualified teams per group and generates an SE playoff.
+// For group_stage: top 2 per group → standard SE.
+// For group_de: 3 seeds per group (QP=1→SF bye, QP=2/3→QF) → 8-slot SE.
+func (s *BracketService) AdvanceToPlayoff(ctx context.Context, actorUserID, tournamentID string) (*TeamBracketResponse, error) {
+	ok, err := s.tournaments.CanManageTournament(ctx, tournamentID, actorUserID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, apperror.Forbidden("insufficient tournament permissions")
+	}
+
+	br, err := s.brackets.GetByTournamentID(ctx, tournamentID)
+	if err != nil {
+		return nil, apperror.NotFound("bracket not found")
+	}
+	if br.Format != "group_stage" && br.Format != "group_de" {
+		return nil, apperror.BadRequest("wrong_format", "tournament is not group stage or group DE", nil)
+	}
+	if br.Status == "playoff" {
+		return nil, apperror.BadRequest("already_advanced", "already advanced to playoff", nil)
+	}
+
+	groups, err := s.groups.ListByBracketID(ctx, br.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	var playoffTeamIDs []string
+
+	if br.Format == "group_de" {
+		// Collect 3 seeds per group ordered by qualified_position.
+		// Seeding order: [G0_S1, G1_S1, ..., G0_S2, G1_S2, ..., G0_S3, G1_S3, ...]
+		// With 2 groups → 6 teams in an 8-slot bracket:
+		//   seeds 1,2 (S1s) get R1 byes → advance directly to SF.
+		//   seeds 3-6 play QF (S2 vs opposite-group S3).
+		seed1s := make([]string, 0, len(groups))
+		seed2s := make([]string, 0, len(groups))
+		seed3s := make([]string, 0, len(groups))
+		for _, g := range groups {
+			for _, m := range g.Members {
+				if m.QualifiedPosition == nil {
+					continue
+				}
+				switch *m.QualifiedPosition {
+				case 1:
+					seed1s = append(seed1s, m.TeamID)
+				case 2:
+					seed2s = append(seed2s, m.TeamID)
+				case 3:
+					seed3s = append(seed3s, m.TeamID)
+				}
+			}
+		}
+		if len(seed1s) == 0 {
+			return nil, apperror.BadRequest("groups_not_complete", "group DE stages have not finished yet", nil)
+		}
+		playoffTeamIDs = append(playoffTeamIDs, seed1s...)
+		playoffTeamIDs = append(playoffTeamIDs, seed2s...)
+		playoffTeamIDs = append(playoffTeamIDs, seed3s...)
+	} else {
+		// group_stage: top 2 per group (sorted by points desc).
+		for _, g := range groups {
+			for i, m := range g.Members {
+				if i >= 2 {
+					break
+				}
+				playoffTeamIDs = append(playoffTeamIDs, m.TeamID)
+			}
+		}
+	}
+
+	if len(playoffTeamIDs) < 2 {
+		return nil, apperror.BadRequest("insufficient_teams", "need at least 2 teams to advance", nil)
+	}
+
+	matches, err := buildEntityMatches(tournamentID, br.ID, "single_elimination", playoffTeamIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	txBracketRepo := repository.NewBracketRepository(tx)
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM matches WHERE tournament_id=$1 AND group_id IS NOT NULL`,
+		tournamentID,
+	); err != nil {
+		return nil, err
+	}
+
+	for _, m := range matches {
+		nextID, src1ID, src2ID := m.NextMatchID, m.SourceMatch1ID, m.SourceMatch2ID
+		m.NextMatchID, m.SourceMatch1ID, m.SourceMatch2ID = nil, nil, nil
+		if err := txBracketRepo.CreateMatch(ctx, m); err != nil {
+			return nil, err
+		}
+		m.NextMatchID, m.SourceMatch1ID, m.SourceMatch2ID = nextID, src1ID, src2ID
+	}
+	propagateByes(matches)
+	for _, m := range matches {
+		if err := txBracketRepo.UpdateMatchState(ctx, m); err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE brackets SET status='playoff' WHERE id=$1`,
+		br.ID,
+	); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	_ = s.audits.Create(ctx, &entity.AuditLog{
+		ID:           uuid.NewString(),
+		ActorUserID:  &actorUserID,
+		TournamentID: &tournamentID,
+		EntityType:   "bracket",
+		EntityID:     br.ID,
+		ActionType:   "advanced_to_playoff",
+		Description:  "Advanced to playoff stage",
+		MetadataJSON: xjson.MustMarshal(map[string]interface{}{"team_ids": playoffTeamIDs}),
+	})
+
+	return s.GetBracket(ctx, tournamentID)
 }
 
 // PropagateWinner places winner/loser into the next matches and handles GF
@@ -419,6 +791,14 @@ func (s *BracketService) PropagateWinner(ctx context.Context, actorUserID, match
 		}
 	}
 
+	// ── Group DE: record qualification for terminal group matches ───────────
+	// Group matches never trigger tournament completion; propagation within the
+	// group bracket is handled normally above (winner/loser paths).
+	if current.GroupID != nil {
+		s.recordGroupDEQualification(ctx, current, loserID)
+		return nil
+	}
+
 	// ── Tournament completion / GF reset ────────────────────────────────────
 	switch {
 	case current.BracketSection == entity.BracketSectionGF && current.RoundNumber == 1:
@@ -426,15 +806,37 @@ func (s *BracketService) PropagateWinner(ctx context.Context, actorUserID, match
 
 	case current.BracketSection == entity.BracketSectionGF && current.RoundNumber == 2:
 		// GF reset complete → champion decided.
-		return s.finishTournament(ctx, current.TournamentID)
+		return s.finishTournament(ctx, current.TournamentID, current.WinnerTeamID, current.WinnerParticipantID)
 
 	case current.NextMatchID == nil &&
 		current.BracketSection == entity.BracketSectionWB:
 		// Single elimination final (no GF section created).
-		return s.finishTournament(ctx, current.TournamentID)
+		return s.finishTournament(ctx, current.TournamentID, current.WinnerTeamID, current.WinnerParticipantID)
 	}
 
 	return nil
+}
+
+// recordGroupDEQualification sets qualified_position in group members when a
+// group WB Final or LB Final finishes.
+//
+//	WB Final winner → position 1 (SF seed); loser → position 2 (QF seed)
+//	LB Final winner → position 3 (QF seed)
+func (s *BracketService) recordGroupDEQualification(ctx context.Context, m *entity.Match, loserID *string) {
+	isWBFinal := m.BracketSection == entity.BracketSectionWB && m.NextMatchID == nil
+	isLBFinal := m.BracketSection == entity.BracketSectionLB && m.NextMatchID == nil
+	if isWBFinal {
+		if m.WinnerTeamID != nil {
+			_ = s.groups.SetQualifiedPosition(ctx, *m.GroupID, *m.WinnerTeamID, 1)
+		}
+		if loserID != nil {
+			_ = s.groups.SetQualifiedPosition(ctx, *m.GroupID, *loserID, 2)
+		}
+	} else if isLBFinal {
+		if m.WinnerTeamID != nil {
+			_ = s.groups.SetQualifiedPosition(ctx, *m.GroupID, *m.WinnerTeamID, 3)
+		}
+	}
 }
 
 // handleGFResult is called after GF Round 1 finishes.
@@ -450,7 +852,7 @@ func (s *BracketService) handleGFResult(
 		*gf.WinnerTeamID == *gf.Team1ID
 
 	if wbChampionWon {
-		return s.finishTournament(ctx, gf.TournamentID)
+		return s.finishTournament(ctx, gf.TournamentID, gf.WinnerTeamID, gf.WinnerParticipantID)
 	}
 
 	// LB champion won → need a Grand Final Reset (GF round 2).
@@ -474,8 +876,9 @@ func (s *BracketService) handleGFResult(
 	return s.brackets.CreateMatch(ctx, reset)
 }
 
-func (s *BracketService) finishTournament(ctx context.Context, tournamentID string) error {
+func (s *BracketService) finishTournament(ctx context.Context, tournamentID string, winnerTeamID, winnerParticipantID *string) error {
 	_ = s.tournaments.tournaments.SetStatus(ctx, tournamentID, entity.TournamentStatusFinished)
+	_ = s.tournaments.tournaments.SetWinner(ctx, tournamentID, winnerTeamID, winnerParticipantID)
 
 	teams, _ := s.teams.ListByTournament(ctx, tournamentID, true)
 	for _, team := range teams {
@@ -531,6 +934,28 @@ func smartAutoAdvance(m *entity.Match, byID map[string]*entity.Match) {
 		byID[*m.SourceMatch2ID] != nil &&
 		byID[*m.SourceMatch2ID].WinnerTeamID == nil
 
+	// LB minor rounds (e.g. LB R1) receive both teams via LoserNext from WB
+	// matches, so SourceMatch1/2ID are nil. Check byID for any undecided match
+	// that will drop a loser into this match's empty slot before auto-advancing.
+	if !slot1Pending && m.Team1ID == nil {
+		for _, other := range byID {
+			if other.LoserNextMatchID != nil && *other.LoserNextMatchID == m.ID &&
+				other.LoserNextSlot == 1 && other.WinnerTeamID == nil {
+				slot1Pending = true
+				break
+			}
+		}
+	}
+	if !slot2Pending && m.Team2ID == nil {
+		for _, other := range byID {
+			if other.LoserNextMatchID != nil && *other.LoserNextMatchID == m.ID &&
+				other.LoserNextSlot == 2 && other.WinnerTeamID == nil {
+				slot2Pending = true
+				break
+			}
+		}
+	}
+
 	if m.Team1ID != nil && m.Team2ID == nil && !slot2Pending {
 		m.WinnerTeamID = m.Team1ID
 		m.IsBye = true
@@ -568,8 +993,6 @@ func buildEntityMatches(
 	switch format {
 	case "double_elimination":
 		nodes, err = bracket.BuildDouble(len(teamIDs))
-	case "group_stage":
-		return nil, apperror.BadRequest("not_implemented", "групповой этап пока не поддерживается, используйте single или double elimination", nil)
 	default:
 		nodes, err = bracket.BuildSingle(len(teamIDs))
 	}
@@ -674,6 +1097,27 @@ func propagateByes(matches []*entity.Match) {
 					byID[*m.SourceMatch1ID] != nil && byID[*m.SourceMatch1ID].WinnerTeamID == nil
 				absentSlot2IsPending := m.Team2ID == nil && m.SourceMatch2ID != nil &&
 					byID[*m.SourceMatch2ID] != nil && byID[*m.SourceMatch2ID].WinnerTeamID == nil
+
+				// Also check LoserNext: LB minor rounds receive teams via WB LoserNext,
+				// not SourceMatchID, so the pending check above misses them.
+				if !absentSlot1IsPending && m.Team1ID == nil {
+					for _, other := range byID {
+						if other.LoserNextMatchID != nil && *other.LoserNextMatchID == m.ID &&
+							other.LoserNextSlot == 1 && other.WinnerTeamID == nil {
+							absentSlot1IsPending = true
+							break
+						}
+					}
+				}
+				if !absentSlot2IsPending && m.Team2ID == nil {
+					for _, other := range byID {
+						if other.LoserNextMatchID != nil && *other.LoserNextMatchID == m.ID &&
+							other.LoserNextSlot == 2 && other.WinnerTeamID == nil {
+							absentSlot2IsPending = true
+							break
+						}
+					}
+				}
 
 				if m.Team1ID != nil && m.Team2ID == nil && !absentSlot2IsPending {
 					m.WinnerTeamID = m.Team1ID

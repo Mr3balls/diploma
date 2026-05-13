@@ -19,7 +19,7 @@ import {
   useStartTournamentBracket,
 } from "@/features/tournaments/hooks";
 import { useAdminCreateTeam, useApproveTeam, useRejectTeam, useTeam, useTournamentAdminTeams, useRemoveMember } from "@/features/teams/hooks";
-import { useGenerateBracket, useRegenerateBracket, useReseedBracket, useTournamentBracket } from "@/features/bracket/hooks";
+import { useGenerateBracket, useRegenerateBracket, useReseedBracket, useTournamentBracket, useAdvanceToPlayoff } from "@/features/bracket/hooks";
 import {
   useApproveResult,
   useRejectResult,
@@ -34,7 +34,8 @@ import { CreateTournamentForm } from "@/features/tournaments/components/create-t
 import { TeamDetailsCard } from "@/features/teams/components/team-details-card";
 import { TeamsTable } from "@/features/teams/components/teams-table";
 import { BracketView } from "@/features/bracket/components/bracket-view";
-import { ChallongeBracket } from "@/features/challonge/components/challonge-bracket";
+import { GroupStageView } from "@/features/bracket/components/group-stage-view";
+import { GroupDEView } from "@/features/bracket/components/group-de-view";
 import { ReseedBoard } from "@/features/bracket/components/reseed-board";
 import { MatchesTable } from "@/features/matches/components/matches-table";
 import type { Match } from "@/shared/types/api";
@@ -388,6 +389,7 @@ export function TournamentAdminPage() {
   const generateBracketMutation = useGenerateBracket(id);
   const regenerateBracketMutation = useRegenerateBracket(id);
   const reseedBracketMutation = useReseedBracket(id);
+  const advanceToPlayoffMutation = useAdvanceToPlayoff(id);
 
   const approveResultMutation = useApproveResult(id);
   const rejectResultMutation = useRejectResult(id);
@@ -443,6 +445,7 @@ export function TournamentAdminPage() {
     tournament.status !== "finished" &&
     tournament.status !== "cancelled";
   const teamsById = new Map((teamsQuery.data?.items ?? []).map((t) => [t.id, t]));
+  const participantsById = new Map((participantsQuery.data?.items ?? []).map((p) => [p.id, p]));
 
   function toDatetimeLocal(iso: string) {
     const d = new Date(iso);
@@ -476,10 +479,10 @@ export function TournamentAdminPage() {
   async function handleResultSubmit() {
     if (!resultMatch || !resultWinnerId) return;
     try {
-      await adminSetResultMutation.mutateAsync({
-        matchId: resultMatch.id,
-        payload: { winner_team_id: resultWinnerId, score_text: resultScore || undefined },
-      });
+      const payload = isIndividual
+        ? { winner_participant_id: resultWinnerId, score_text: resultScore || undefined }
+        : { winner_team_id: resultWinnerId, score_text: resultScore || undefined };
+      await adminSetResultMutation.mutateAsync({ matchId: resultMatch.id, payload });
       toast.success("Победитель установлен");
       setResultMatch(null);
     } catch (err) {
@@ -570,6 +573,16 @@ export function TournamentAdminPage() {
     }
   }
 
+  async function handleAdvanceToPlayoff() {
+    if (!confirm("Перейти к плей-офф? Групповые матчи будут завершены.")) return;
+    try {
+      await advanceToPlayoffMutation.mutateAsync();
+      toast.success("Плей-офф начался!");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
   async function handleSaveReseed() {
     try {
       await reseedBracketMutation.mutateAsync({ ordered_team_ids: reseedItems.map((item) => item.id) });
@@ -640,12 +653,27 @@ export function TournamentAdminPage() {
     previewImportMutation.isPending ||
     confirmImportMutation.isPending;
 
+  const winnerName = tournament.winner_team_id
+    ? (teamsQuery.data?.items.find((t) => t.id === tournament.winner_team_id)?.name ?? null)
+    : tournament.winner_participant_id
+    ? (participantsQuery.data?.items.find((p) => p.id === tournament.winner_participant_id)?.name ?? null)
+    : null;
+
   return (
     <div className="grid gap-6">
       <PageHeader
         title={tournament.title}
         description="Управление турниром"
       />
+      {winnerName && (
+        <div className="flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-5 py-4">
+          <span className="text-2xl">🏆</span>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-yellow-400">Победитель турнира</p>
+            <p className="text-lg font-semibold text-white">{winnerName}</p>
+          </div>
+        </div>
+      )}
 
       <SectionCard title="Основные настройки" description="Редактирование параметров и смена статуса.">
         <div className="grid gap-6">
@@ -692,11 +720,11 @@ export function TournamentAdminPage() {
           </SectionCard>
           {(bracketQuery.data?.matches ?? []).length > 0 && (
             <SectionCard title="Сетка" description="Турнирная сетка по участникам.">
-              <ChallongeBracket
-                matches={(bracketQuery.data?.matches ?? []) as any}
+              <BracketView
+                matches={bracketQuery.data?.matches ?? []}
                 participants={participantsQuery.data?.items ?? []}
-                isManager
-                slug={id}
+                adminMode
+                tournamentId={id}
               />
             </SectionCard>
           )}
@@ -791,6 +819,77 @@ export function TournamentAdminPage() {
               <Spinner />
             ) : bracketQuery.isError ? (
               <ErrorState />
+            ) : bracketQuery.data?.bracket?.format === "group_stage" ? (
+              <div className="space-y-4">
+                {bracketQuery.data.bracket.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#90afd4]">Плей-офф</h3>
+                    <BracketView
+                      matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)}
+                      teams={teamsQuery.data?.items ?? []}
+                      adminMode
+                      tournamentId={id}
+                    />
+                  </div>
+                )}
+                {(bracketQuery.data.groups ?? []).length > 0 ? (
+                  <GroupStageView
+                    groups={bracketQuery.data.groups ?? []}
+                    matches={bracketQuery.data.matches ?? []}
+                    teams={teamsQuery.data?.items ?? []}
+                    adminMode
+                    tournamentId={id}
+                  />
+                ) : (
+                  <EmptyState title="Сетка не сгенерирована" description="Нажмите «Сгенерировать» для создания группового этапа." />
+                )}
+                {bracketQuery.data.bracket.status !== "playoff" && (bracketQuery.data.groups ?? []).length > 0 && (
+                  <Button
+                    className="w-full"
+                    disabled={advanceToPlayoffMutation.isPending}
+                    onClick={() => void handleAdvanceToPlayoff()}
+                  >
+                    {advanceToPlayoffMutation.isPending ? "Переход..." : "Перейти к плей-офф →"}
+                  </Button>
+                )}
+              </div>
+            ) : bracketQuery.data?.bracket?.format === "group_de" ? (
+              <div className="space-y-4">
+                {/* Playoff bracket after advancement */}
+                {bracketQuery.data.bracket.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#90afd4]">Плей-офф</h3>
+                    <BracketView
+                      matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)}
+                      teams={teamsQuery.data?.items ?? []}
+                      adminMode
+                      tournamentId={id}
+                    />
+                  </div>
+                )}
+                {/* Per-group DE brackets */}
+                {(bracketQuery.data.groups ?? []).length > 0 ? (
+                  <GroupDEView
+                    groups={bracketQuery.data.groups ?? []}
+                    matches={bracketQuery.data.matches ?? []}
+                    teams={teamsQuery.data?.items ?? []}
+                    adminMode
+                    tournamentId={id}
+                  />
+                ) : (
+                  <EmptyState title="Сетка не сгенерирована" description="Нажмите «Сгенерировать» для создания группового DE этапа." />
+                )}
+                {/* Advance to playoff once all groups have 3 qualified teams each */}
+                {bracketQuery.data.bracket.status !== "playoff" && (bracketQuery.data.groups ?? []).length > 0 && (
+                  <Button
+                    className="w-full"
+                    disabled={advanceToPlayoffMutation.isPending}
+                    onClick={() => void handleAdvanceToPlayoff()}
+                  >
+                    {advanceToPlayoffMutation.isPending ? "Переход..." : "Перейти к плей-офф →"}
+                  </Button>
+                )}
+              </div>
             ) : (
               <BracketView
                 matches={bracketQuery.data?.matches ?? []}
@@ -841,25 +940,52 @@ export function TournamentAdminPage() {
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
                 <p className="text-sm text-[#90afd4]">Выберите победителя:</p>
-                {resultMatch.team1_id && (
-                  <Button
-                    size="sm"
-                    variant={resultWinnerId === resultMatch.team1_id ? "default" : "outline"}
-                    className="justify-start"
-                    onClick={() => setResultWinnerId(resultMatch.team1_id!)}
-                  >
-                    {teamsById.get(resultMatch.team1_id)?.name ?? resultMatch.team1_id.slice(0, 8)}
-                  </Button>
-                )}
-                {resultMatch.team2_id && (
-                  <Button
-                    size="sm"
-                    variant={resultWinnerId === resultMatch.team2_id ? "default" : "outline"}
-                    className="justify-start"
-                    onClick={() => setResultWinnerId(resultMatch.team2_id!)}
-                  >
-                    {teamsById.get(resultMatch.team2_id)?.name ?? resultMatch.team2_id.slice(0, 8)}
-                  </Button>
+                {isIndividual ? (
+                  <>
+                    {resultMatch.participant1_id && (
+                      <Button
+                        size="sm"
+                        variant={resultWinnerId === resultMatch.participant1_id ? "default" : "outline"}
+                        className="justify-start"
+                        onClick={() => setResultWinnerId(resultMatch.participant1_id!)}
+                      >
+                        {participantsById.get(resultMatch.participant1_id)?.name ?? resultMatch.participant1_id.slice(0, 8)}
+                      </Button>
+                    )}
+                    {resultMatch.participant2_id && (
+                      <Button
+                        size="sm"
+                        variant={resultWinnerId === resultMatch.participant2_id ? "default" : "outline"}
+                        className="justify-start"
+                        onClick={() => setResultWinnerId(resultMatch.participant2_id!)}
+                      >
+                        {participantsById.get(resultMatch.participant2_id)?.name ?? resultMatch.participant2_id.slice(0, 8)}
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {resultMatch.team1_id && (
+                      <Button
+                        size="sm"
+                        variant={resultWinnerId === resultMatch.team1_id ? "default" : "outline"}
+                        className="justify-start"
+                        onClick={() => setResultWinnerId(resultMatch.team1_id!)}
+                      >
+                        {teamsById.get(resultMatch.team1_id)?.name ?? resultMatch.team1_id.slice(0, 8)}
+                      </Button>
+                    )}
+                    {resultMatch.team2_id && (
+                      <Button
+                        size="sm"
+                        variant={resultWinnerId === resultMatch.team2_id ? "default" : "outline"}
+                        className="justify-start"
+                        onClick={() => setResultWinnerId(resultMatch.team2_id!)}
+                      >
+                        {teamsById.get(resultMatch.team2_id)?.name ?? resultMatch.team2_id.slice(0, 8)}
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
               <div className="grid gap-1">
@@ -886,7 +1012,7 @@ export function TournamentAdminPage() {
             participants={participantsQuery.data?.items ?? []}
             adminMode
             onSchedule={handleScheduleOpen}
-            onSubmitResult={!isIndividual ? handleResultOpen : undefined}
+            onSubmitResult={handleResultOpen}
             onApprove={(match) => void handleApproveResult(match.id)}
             onReject={(match) => void handleRejectResult(match.id)}
           />

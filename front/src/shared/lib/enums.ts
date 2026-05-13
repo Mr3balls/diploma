@@ -32,6 +32,7 @@ export const tournamentFormatLabel: Record<TournamentFormat, string> = {
   single_elimination: "Single Elimination",
   double_elimination: "Double Elimination",
   group_stage: "Групповой этап + Плей-офф",
+  group_de: "Групп. DE + Плей-офф",
 };
 
 export const teamStatusLabel: Record<TeamStatus, string> = {

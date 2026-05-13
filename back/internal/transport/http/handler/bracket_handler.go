@@ -66,6 +66,21 @@ func (h *BracketHandler) Reseed(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"bracket": bracket, "matches": matches})
 }
 
+func (h *BracketHandler) AdvanceToPlayoff(w http.ResponseWriter, r *http.Request) {
+	actorUserID := mustUserID(r)
+	if actorUserID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	tournamentID := chi.URLParam(r, "id")
+	resp, err := h.deps.Brackets.AdvanceToPlayoff(r.Context(), actorUserID, tournamentID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func (h *BracketHandler) ResetMatch(w http.ResponseWriter, r *http.Request) {
 	actorUserID := mustUserID(r)
 	if actorUserID == "" {

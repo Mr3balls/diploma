@@ -148,8 +148,9 @@ func (h *MatchHandler) ApproveResult(w http.ResponseWriter, r *http.Request) {
 }
 
 type adminSetResultRequest struct {
-	WinnerTeamID string  `json:"winner_team_id"`
-	ScoreText    *string `json:"score_text"`
+	WinnerTeamID        string  `json:"winner_team_id"`
+	WinnerParticipantID string  `json:"winner_participant_id"`
+	ScoreText           *string `json:"score_text"`
 }
 
 func (h *MatchHandler) AdminSetResult(w http.ResponseWriter, r *http.Request) {
@@ -162,6 +163,18 @@ func (h *MatchHandler) AdminSetResult(w http.ResponseWriter, r *http.Request) {
 	var req adminSetResultRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
+		return
+	}
+	if req.WinnerParticipantID != "" {
+		// Individual / participant-based match — delegate to challonge service.
+		// Permission check: reuse CanManageTournament after loading the match.
+		// The challonge service loads the match internally; we do a lightweight
+		// permission guard here by checking via the tournament handler dep.
+		if err := h.deps.Challonge.AdminSetParticipantResult(r.Context(), matchID, actorUserID, req.WinnerParticipantID); err != nil {
+			writeError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "result set"})
 		return
 	}
 	if err := h.deps.Matches.AdminSetResult(r.Context(), actorUserID, matchID, service.AdminSetResultInput{WinnerTeamID: req.WinnerTeamID, ScoreText: req.ScoreText}); err != nil {

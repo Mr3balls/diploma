@@ -64,6 +64,7 @@ func main() {
 	importRepo := repository.NewImportRepository(pg)
 	teamRepo := repository.NewTeamRepository(pg)
 	bracketRepo := repository.NewBracketRepository(pg)
+	groupRepo := repository.NewGroupRepository(pg)
 	notificationRepo := repository.NewNotificationRepository(pg)
 	auditRepo := repository.NewAuditRepository(pg)
 
@@ -88,8 +89,8 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	importService := service.NewImportService(tournamentService, importRepo, teamRepo, userRepo, notificationRepo, auditRepo, sheetsReader)
 	notificationService := service.NewNotificationService(notificationRepo)
-	bracketService := service.NewBracketService(pg, tournamentService, bracketRepo, teamRepo, notificationRepo, auditRepo)
-	matchService := service.NewMatchService(tournamentService, bracketRepo, teamRepo, userRepo, notificationRepo, auditRepo, bracketService, emailService)
+	bracketService := service.NewBracketService(pg, tournamentService, bracketRepo, groupRepo, teamRepo, notificationRepo, auditRepo)
+	matchService := service.NewMatchService(tournamentService, bracketRepo, groupRepo, teamRepo, userRepo, notificationRepo, auditRepo, bracketService, emailService)
 	teamService := service.NewTeamService(tournamentService, teamRepo, userRepo, notificationRepo, auditRepo, emailService)
 	auditService := service.NewAuditService(tournamentService, auditRepo)
 	adminService := service.NewAdminService(userRepo, tournamentRepo)

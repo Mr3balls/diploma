@@ -54,6 +54,10 @@ func (s *stubTournamentStore) SetStatus(_ context.Context, id, status string) er
 	return nil
 }
 
+func (s *stubTournamentStore) SetWinner(_ context.Context, _ string, _, _ *string) error {
+	return nil
+}
+
 func (s *stubTournamentStore) SoftDelete(_ context.Context, id string) error {
 	delete(s.tournaments, id)
 	return nil

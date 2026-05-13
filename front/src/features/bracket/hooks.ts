@@ -41,3 +41,14 @@ export function useReseedBracket(tournamentId: string) {
     },
   });
 }
+
+export function useAdvanceToPlayoff(tournamentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => bracketApi.advanceToPlayoff(tournamentId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentBracket(tournamentId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentMatches(tournamentId) });
+    },
+  });
+}

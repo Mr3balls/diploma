@@ -13,8 +13,10 @@ import { useTournamentTeams, useTeam } from "@/features/teams/hooks";
 import { useTournamentBracket } from "@/features/bracket/hooks";
 import { useTournamentMatches } from "@/features/matches/hooks";
 import { BracketView } from "@/features/bracket/components/bracket-view";
-import { ChallongeBracket } from "@/features/challonge/components/challonge-bracket";
+import { GroupStageView } from "@/features/bracket/components/group-stage-view";
+import { GroupDEView } from "@/features/bracket/components/group-de-view";
 import { MatchesTable } from "@/features/matches/components/matches-table";
+import { ResultsView } from "@/features/matches/components/results-view";
 import { TeamsTable } from "@/features/teams/components/teams-table";
 import { TeamDetailsCard } from "@/features/teams/components/team-details-card";
 import { PageHeader } from "@/shared/ui/page-header";
@@ -64,18 +66,24 @@ export function TournamentDetailsPage() {
   const registerTeamMutation = useRegisterTeam(id);
   const teamDetailsQuery = useTeam(detailsTeamId ?? undefined, Boolean(detailsTeamId));
 
+  const isFinished = tournamentQuery.data?.status === "finished" || tournamentQuery.data?.status === "completed";
+
   const tabs = useMemo(() => {
     const items = [
       { value: "bracket", label: "Сетка" },
       { value: "teams", label: isIndividual ? "Участники" : "Команды" },
-      { value: "matches", label: "Матчи" },
-      { value: "rules", label: "Правила" },
     ];
+    if (isFinished) {
+      items.push({ value: "results", label: "Результаты" });
+    } else {
+      items.push({ value: "matches", label: "Матчи" });
+    }
+    items.push({ value: "rules", label: "Правила" });
     if (access.canAccessAdmin) {
       items.push({ value: "admin", label: "Управление" });
     }
     return items;
-  }, [access.canAccessAdmin]);
+  }, [access.canAccessAdmin, isIndividual, isFinished]);
 
   if (tournamentQuery.isLoading) return <Spinner />;
   if (tournamentQuery.isError || !tournamentQuery.data) return <ErrorState />;
@@ -131,8 +139,23 @@ export function TournamentDetailsPage() {
     setMembers((prev) => prev.filter((_, i) => i !== index));
   }
 
+  const winnerName = tournament.winner_team_id
+    ? (teamsQuery.data?.items.find((t) => t.id === tournament.winner_team_id)?.name ?? null)
+    : tournament.winner_participant_id
+    ? (participantsQuery.data?.items.find((p) => p.id === tournament.winner_participant_id)?.name ?? null)
+    : null;
+
   return (
     <div className="grid gap-6">
+      {winnerName && (
+        <div className="flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-5 py-4">
+          <span className="text-2xl">🏆</span>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-yellow-400">Победитель турнира</p>
+            <p className="text-lg font-semibold text-white">{winnerName}</p>
+          </div>
+        </div>
+      )}
       <PageHeader
         title={tournament.title}
         description={tournament.description || ""}
@@ -247,11 +270,9 @@ export function TournamentDetailsPage() {
           participantsQuery.isLoading || bracketQuery.isLoading ? (
             <Spinner />
           ) : (bracketQuery.data?.matches ?? []).length > 0 ? (
-            <ChallongeBracket
-              matches={(bracketQuery.data?.matches ?? []) as any}
+            <BracketView
+              matches={bracketQuery.data?.matches ?? []}
               participants={participantsQuery.data?.items ?? []}
-              isManager={false}
-              slug={id}
             />
           ) : (
             <EmptyState title="Сетка не сгенерирована" description="Администратор ещё не запустил сетку." />
@@ -260,6 +281,51 @@ export function TournamentDetailsPage() {
           <Spinner />
         ) : bracketQuery.isError ? (
           <ErrorState />
+        ) : bracketQuery.data?.bracket?.format === "group_stage" ? (
+          <div className="space-y-6">
+            {bracketQuery.data.bracket?.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-[#90afd4]">Плей-офф</h3>
+                <BracketView
+                  matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)}
+                  teams={teamsQuery.data?.items ?? []}
+                  participants={participantsQuery.data?.items ?? []}
+                />
+              </div>
+            )}
+            {(bracketQuery.data.groups ?? []).length > 0 ? (
+              <GroupStageView
+                groups={bracketQuery.data.groups ?? []}
+                matches={bracketQuery.data.matches ?? []}
+                teams={teamsQuery.data?.items ?? []}
+              />
+            ) : (
+              <EmptyState title="Сетка не сгенерирована" description="Администратор ещё не запустил сетку." />
+            )}
+          </div>
+        ) : bracketQuery.data?.bracket?.format === "group_de" ? (
+          <div className="space-y-6">
+            {/* Playoff bracket — shown when all groups are done */}
+            {bracketQuery.data.bracket?.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-[#90afd4]">Плей-офф</h3>
+                <BracketView
+                  matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)}
+                  teams={teamsQuery.data?.items ?? []}
+                  participants={participantsQuery.data?.items ?? []}
+                />
+              </div>
+            )}
+            {(bracketQuery.data.groups ?? []).length > 0 ? (
+              <GroupDEView
+                groups={bracketQuery.data.groups ?? []}
+                matches={bracketQuery.data.matches ?? []}
+                teams={teamsQuery.data?.items ?? []}
+              />
+            ) : (
+              <EmptyState title="Сетка не сгенерирована" description="Администратор ещё не запустил сетку." />
+            )}
+          </div>
         ) : (bracketQuery.data?.matches ?? []).length > 0 ? (
           <BracketView matches={bracketQuery.data?.matches ?? []} teams={teamsQuery.data?.items ?? []} participants={participantsQuery.data?.items ?? []} />
         ) : (
@@ -315,7 +381,7 @@ export function TournamentDetailsPage() {
         )
       ) : null}
 
-      {tab === "matches" ? (
+      {tab === "matches" && !isFinished ? (
         matchesQuery.isLoading ? (
           <Spinner />
         ) : matchesQuery.isError ? (
@@ -324,6 +390,18 @@ export function TournamentDetailsPage() {
           <MatchesTable matches={matchesQuery.data.items} teams={teamsQuery.data?.items ?? []} participants={participantsQuery.data?.items ?? []} />
         ) : (
           <EmptyState title="Матчей пока нет" description="Матчи появятся после генерации сетки." />
+        )
+      ) : null}
+
+      {(tab === "results" || (tab === "matches" && isFinished)) ? (
+        matchesQuery.isLoading ? (
+          <Spinner />
+        ) : (
+          <ResultsView
+            matches={matchesQuery.data?.items ?? []}
+            teams={teamsQuery.data?.items ?? []}
+            participants={participantsQuery.data?.items ?? []}
+          />
         )
       ) : null}
 

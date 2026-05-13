@@ -24,7 +24,7 @@ type createTournamentRequest struct {
 	Rules                *string `json:"rules"`
 	Location             *string `json:"location"`
 	MaxTeams             int     `json:"max_teams"`
-	Format               string  `json:"format" validate:"omitempty,oneof=single_elimination double_elimination group_stage"`
+	Format               string  `json:"format" validate:"omitempty,oneof=single_elimination double_elimination group_stage group_de"`
 	GroupCount           *int    `json:"group_count"`
 	RegistrationDeadline *string `json:"registration_deadline"`
 	StartAt              *string `json:"start_at"`
@@ -91,12 +91,12 @@ func (h *TournamentHandler) GetPublicMatches(w http.ResponseWriter, r *http.Requ
 
 func (h *TournamentHandler) GetBracket(w http.ResponseWriter, r *http.Request) {
 	tournamentID := chi.URLParam(r, "id")
-	bracket, matches, err := h.deps.Brackets.GetBracket(r.Context(), tournamentID)
+	resp, err := h.deps.Brackets.GetBracket(r.Context(), tournamentID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"bracket": bracket, "matches": matches})
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *TournamentHandler) Create(w http.ResponseWriter, r *http.Request) {
