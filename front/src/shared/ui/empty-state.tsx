@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { Card, CardContent } from "@/shared/ui/card";
 
 export function EmptyState({
@@ -14,7 +14,7 @@ export function EmptyState({
     <Card>
       <CardContent className="flex flex-col items-start gap-3 py-8">
         <h3 className="text-base font-semibold">{title}</h3>
-        <p className="max-w-2xl text-sm text-[#90afd4]">{description}</p>
+        <p className="max-w-2xl text-sm text-[#9e9e9e]">{description}</p>
         {action}
       </CardContent>
     </Card>

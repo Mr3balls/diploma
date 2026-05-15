@@ -85,18 +85,19 @@ func main() {
 	emailService := service.NewEmailService(emailSender)
 
 	tournamentService := service.NewTournamentService(tournamentRepo, teamRepo, bracketRepo, auditRepo)
-	authService := service.NewAuthService(cfg, userRepo, sessionRepo, auditRepo, emailService)
+	authService := service.NewAuthService(cfg, userRepo, sessionRepo, auditRepo, emailService, teamRepo, notificationRepo)
 	userService := service.NewUserService(userRepo)
 	importService := service.NewImportService(tournamentService, importRepo, teamRepo, userRepo, notificationRepo, auditRepo, sheetsReader)
 	notificationService := service.NewNotificationService(notificationRepo)
-	bracketService := service.NewBracketService(pg, tournamentService, bracketRepo, groupRepo, teamRepo, notificationRepo, auditRepo)
+	bracketService := service.NewBracketService(pg, tournamentService, bracketRepo, groupRepo, teamRepo, participantRepo, notificationRepo, auditRepo)
 	matchService := service.NewMatchService(tournamentService, bracketRepo, groupRepo, teamRepo, userRepo, notificationRepo, auditRepo, bracketService, emailService)
 	teamService := service.NewTeamService(tournamentService, teamRepo, userRepo, notificationRepo, auditRepo, emailService)
 	auditService := service.NewAuditService(tournamentService, auditRepo)
 	adminService := service.NewAdminService(userRepo, tournamentRepo)
 
-	// Challonge SSE hub + service
+	// SSE hub (shared for tournament brackets and user notifications)
 	hub := ws.NewHub()
+	notificationRepo.WithBroadcaster(hub)
 	challongeService := service.NewChallongeService(pg, tournamentRepo, bracketRepo, participantRepo, membersRepo, reportsRepo, matchLogRepo, invitesRepo, userRepo, hub)
 
 	validate := validator.New()
@@ -118,6 +119,7 @@ func main() {
 		Admin:         adminService,
 		Challonge:     challongeService,
 		Hub:           hub,
+		JWTSecret:     cfg.AccessTokenSecret,
 	}
 
 	srv := &http.Server{

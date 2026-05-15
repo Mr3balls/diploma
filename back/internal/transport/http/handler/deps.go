@@ -21,4 +21,5 @@ type Deps struct {
 	Admin         *service.AdminService
 	Challonge     *service.ChallongeService
 	Hub           *ws.Hub
+	JWTSecret     string
 }

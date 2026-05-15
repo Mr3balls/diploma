@@ -22,7 +22,7 @@ type rejectTeamRequest struct {
 }
 
 type replaceMemberRequest struct {
-	Nickname string `json:"nickname" validate:"required,min=2,max=50"`
+	Email string `json:"email" validate:"required,email"`
 }
 
 func (h *TeamHandler) AdminCreateTeam(w http.ResponseWriter, r *http.Request) {
@@ -80,9 +80,38 @@ func (h *TeamHandler) GetAdminTeams(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"items": items})
 }
 
+func (h *TeamHandler) AdminDeleteTeam(w http.ResponseWriter, r *http.Request) {
+	actorUserID := mustUserID(r)
+	if actorUserID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	teamID := chi.URLParam(r, "teamId")
+	if err := h.deps.Teams.AdminDeleteTeam(r.Context(), actorUserID, teamID); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "team deleted"})
+}
+
 func (h *TeamHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
 	teamID := chi.URLParam(r, "id")
 	result, err := h.deps.Teams.GetTeam(r.Context(), teamID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *TeamHandler) GetMyTeam(w http.ResponseWriter, r *http.Request) {
+	actorUserID := mustUserID(r)
+	if actorUserID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	tournamentID := chi.URLParam(r, "id")
+	result, err := h.deps.Teams.GetMyTeam(r.Context(), actorUserID, tournamentID)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -171,7 +200,7 @@ func (h *TeamHandler) ReplaceMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	if err := h.deps.Teams.ReplaceMember(r.Context(), actorUserID, teamID, memberID, service.ReplaceMemberInput{Nickname: req.Nickname}); err != nil {
+	if err := h.deps.Teams.ReplaceMember(r.Context(), actorUserID, teamID, memberID, service.ReplaceMemberInput{Email: req.Email}); err != nil {
 		writeError(w, err)
 		return
 	}

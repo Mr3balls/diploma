@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Trophy } from "lucide-react";
 import { toast } from "sonner";
 import type { Match, Team } from "@/shared/types/api";
@@ -113,8 +113,8 @@ function MatchCard({
   const canPick =
     adminMode && !done && !match.is_bye && Boolean(tournamentId) &&
     (isParticipantMatch
-      ? Boolean(match.participant1_id) && Boolean(match.participant2_id)
-      : Boolean(match.team1_id) && Boolean(match.team2_id));
+      ? Boolean(match.participant1_id) || Boolean(match.participant2_id)
+      : Boolean(match.team1_id) || Boolean(match.team2_id));
 
   function submit(id: string) {
     const payload = isParticipantMatch
@@ -130,9 +130,9 @@ function MatchCard({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-[#0a3575] bg-[#001a4a] text-sm">
+    <div className="relative overflow-hidden rounded-lg border border-[#2d2d2d] bg-[#1a1a1a] text-sm">
       {match.scheduled_at && (
-        <div className="border-b border-[#0a3575] px-2 py-1 text-[10px] text-[#4a7ab5]">
+        <div className="border-b border-[#2d2d2d] px-2 py-1 text-[10px] text-[#666666]">
           {formatDateTime(match.scheduled_at)}
         </div>
       )}
@@ -141,7 +141,7 @@ function MatchCard({
         <div
           key={side}
           className={`flex items-center justify-between gap-1 px-2 py-1.5 ${
-            won ? "bg-[#2255ff]/20 font-semibold text-white" : "text-[#90afd4]"
+            won ? "bg-[#ff5500]/20 font-semibold text-white" : "text-[#9e9e9e]"
           }`}
         >
           <span className="min-w-0 flex-1 truncate">{name}</span>
@@ -150,13 +150,13 @@ function MatchCard({
       ))}
 
       {match.score_text && (
-        <div className="border-t border-[#0a3575] px-2 py-0.5 text-center text-[10px] text-[#90afd4]">
+        <div className="border-t border-[#2d2d2d] px-2 py-0.5 text-center text-[10px] text-[#9e9e9e]">
           {match.score_text}
         </div>
       )}
 
       {canPick && (
-        <div className="border-t border-[#0a3575] px-2 py-1.5">
+        <div className="border-t border-[#2d2d2d] px-2 py-1.5">
           <Button size="sm" variant="secondary" className="w-full text-xs" onClick={() => setPicking(true)}>
             Указать победителя
           </Button>
@@ -165,7 +165,7 @@ function MatchCard({
 
       {/* Overlay picker — absolute inset-0 keeps card height fixed */}
       {picking && (
-        <div className="absolute inset-0 flex flex-col gap-1 bg-[#001a4a] p-2">
+        <div className="absolute inset-0 flex flex-col gap-1 bg-[#1a1a1a] p-2">
           {isParticipantMatch ? (
             <>
               {match.participant1_id && (
@@ -269,7 +269,7 @@ function BracketSection({
   return (
     <div className="space-y-3">
       {section !== "WB" && (
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-[#4a7ab5]">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-[#666666]">
           {sectionLabel}
         </h3>
       )}
@@ -282,7 +282,7 @@ function BracketSection({
           overflow="visible"
         >
           {connectorPaths.map((d, i) => (
-            <path key={i} d={d} fill="none" stroke="#1a4a7a" strokeWidth={1.5} />
+            <path key={i} d={d} fill="none" stroke="#2a2a2a" strokeWidth={1.5} />
           ))}
         </svg>
 
@@ -309,7 +309,7 @@ function BracketSection({
         {rounds.map((_, ri) => (
           <div
             key={ri}
-            className="absolute text-center text-[10px] font-semibold uppercase tracking-wide text-[#4a7ab5]"
+            className="absolute text-center text-[10px] font-semibold uppercase tracking-wide text-[#666666]"
             style={{ left: colLeft(ri), width: CARD_W }}
           >
             {roundLabel(section, ri, rounds.length)}
@@ -346,7 +346,7 @@ export function BracketView({
 
   if (!visible.length) {
     return (
-      <div className="rounded-xl border border-[#0a3575] px-6 py-8 text-sm text-[#90afd4]">
+      <div className="rounded-xl border border-[#2d2d2d] px-6 py-8 text-sm text-[#9e9e9e]">
         Сетка пока не создана.
       </div>
     );

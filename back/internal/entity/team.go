@@ -19,6 +19,7 @@ type TeamMember struct {
 	TeamID             string     `json:"team_id"`
 	UserID             *string    `json:"user_id,omitempty"`
 	Nickname           string     `json:"nickname"`
+	Email              *string    `json:"email,omitempty"`
 	MemberRole         string     `json:"member_role"`
 	IsCaptain          bool       `json:"is_captain"`
 	IsSubstitute       bool       `json:"is_substitute"`

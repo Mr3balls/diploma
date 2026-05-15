@@ -45,10 +45,11 @@ type addManagerRequest struct {
 func (h *TournamentHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
 	limit, offset := pageParams(r)
 	f := repository.TournamentFilter{
-		Status:     r.URL.Query().Get("status"),
-		Format:     r.URL.Query().Get("format"),
-		Discipline: r.URL.Query().Get("discipline"),
-		Query:      r.URL.Query().Get("q"),
+		Status:      r.URL.Query().Get("status"),
+		Format:      r.URL.Query().Get("format"),
+		Discipline:  r.URL.Query().Get("discipline"),
+		Query:       r.URL.Query().Get("q"),
+		RequesterID: mustUserID(r),
 	}
 	items, total, err := h.deps.Tournaments.ListPublic(r.Context(), limit, offset, f)
 	if err != nil {
@@ -131,7 +132,7 @@ func (h *TournamentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if maxTeams < 2 {
 		maxTeams = 8
 	}
-	tournament := &entity.Tournament{Title: req.Title, Discipline: req.Discipline, Description: req.Description, Rules: req.Rules, Location: req.Location, MaxTeams: maxTeams, Format: req.Format, GroupCount: req.GroupCount, RegistrationDeadline: registrationDeadline, StartAt: startAt, Visibility: req.Visibility, RegistrationMode: req.RegistrationMode}
+	tournament := &entity.Tournament{Title: req.Title, Discipline: req.Discipline, Description: req.Description, Rules: req.Rules, Location: req.Location, MaxTeams: maxTeams, MaxParticipants: maxTeams, Format: req.Format, GroupCount: req.GroupCount, RegistrationDeadline: registrationDeadline, StartAt: startAt, Visibility: req.Visibility, RegistrationMode: req.RegistrationMode}
 	created, err := h.deps.Tournaments.Create(r.Context(), actorUserID, toCreateTournamentInput(tournament))
 	if err != nil {
 		writeError(w, err)
@@ -173,7 +174,7 @@ func (h *TournamentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if maxTeams < 2 {
 		maxTeams = 8
 	}
-	tournament := &entity.Tournament{ID: id, Title: req.Title, Discipline: req.Discipline, Description: req.Description, Rules: req.Rules, Location: req.Location, MaxTeams: maxTeams, Format: req.Format, GroupCount: req.GroupCount, RegistrationDeadline: registrationDeadline, StartAt: startAt, Visibility: req.Visibility, RegistrationMode: req.RegistrationMode}
+	tournament := &entity.Tournament{ID: id, Title: req.Title, Discipline: req.Discipline, Description: req.Description, Rules: req.Rules, Location: req.Location, MaxTeams: maxTeams, MaxParticipants: maxTeams, Format: req.Format, GroupCount: req.GroupCount, RegistrationDeadline: registrationDeadline, StartAt: startAt, Visibility: req.Visibility, RegistrationMode: req.RegistrationMode}
 	updated, err := h.deps.Tournaments.Update(r.Context(), actorUserID, tournament)
 	if err != nil {
 		writeError(w, err)
@@ -398,7 +399,7 @@ func (h *TournamentHandler) RegisterTeam(w http.ResponseWriter, r *http.Request)
 		CaptainUserID:   userID,
 		CaptainNickname: nickname,
 		TeamName:        req.TeamName,
-		MemberNicknames: req.Members,
+		MemberEmails:    req.Members,
 	})
 	if err != nil {
 		writeError(w, err)

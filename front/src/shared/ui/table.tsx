@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { cn } from "@/shared/lib/cn";
 
 export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
@@ -14,13 +14,13 @@ export function TableBody({ className, ...props }: React.HTMLAttributes<HTMLTabl
 }
 
 export function TableRow({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn("border-b transition-colors hover:bg-[#002366]", className)} {...props} />;
+  return <tr className={cn("border-b transition-colors hover:bg-[#2a2a2a]", className)} {...props} />;
 }
 
 export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={cn("h-12 px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-[#90afd4]", className)}
+      className={cn("h-12 px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-[#9e9e9e]", className)}
       {...props}
     />
   );

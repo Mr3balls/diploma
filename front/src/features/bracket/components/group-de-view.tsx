@@ -1,4 +1,4 @@
-import type { BracketGroup, Match, Team } from "@/shared/types/api";
+﻿import type { BracketGroup, Match, Team } from "@/shared/types/api";
 import { BracketView } from "./bracket-view";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -9,20 +9,20 @@ const QP_LABEL: Record<number, string> = {
 };
 const QP_COLOR: Record<number, string> = {
   1: "text-yellow-400",
-  2: "text-[#4a9eff]",
-  3: "text-[#4a9eff]",
+  2: "text-[#ff7733]",
+  3: "text-[#ff7733]",
 };
 
 function GroupSeedTable({ group, teamsById }: { group: BracketGroup; teamsById: Map<string, Team> }) {
   return (
-    <Card className="border-[#0a3575] bg-[#001a4a]">
+    <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm text-white">{group.name}</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-[#0a3575] text-[#90afd4]">
+            <tr className="border-b border-[#2d2d2d] text-[#9e9e9e]">
               <th className="px-3 py-2 text-left">Команда</th>
               <th className="px-3 py-2 text-right">Статус</th>
             </tr>
@@ -32,9 +32,9 @@ function GroupSeedTable({ group, teamsById }: { group: BracketGroup; teamsById: 
               const team = teamsById.get(m.team_id);
               const qp = m.qualified_position ?? null;
               return (
-                <tr key={m.id} className="border-b border-[#0a3575]/50">
+                <tr key={m.id} className="border-b border-[#2d2d2d]/50">
                   <td className="px-3 py-2 text-white">{team?.name ?? m.team_id}</td>
-                  <td className={`px-3 py-2 text-right font-semibold ${qp ? QP_COLOR[qp] : "text-[#4a7ab5]"}`}>
+                  <td className={`px-3 py-2 text-right font-semibold ${qp ? QP_COLOR[qp] : "text-[#666666]"}`}>
                     {qp ? QP_LABEL[qp] : "—"}
                   </td>
                 </tr>
@@ -84,7 +84,7 @@ export function GroupDEView({
         if (!gMatches.length) return null;
         return (
           <div key={g.id} className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-[#4a7ab5]">
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-[#666666]">
               {g.name}
             </h3>
             <BracketView

@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -13,19 +13,10 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const form = useForm<LoginRequest>({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginRequest>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = form;
 
   async function onSubmit(values: LoginRequest) {
     try {
@@ -38,28 +29,40 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid gap-6 p-6 md:p-8">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Вход</h1>
-        <p className="text-sm text-[#90afd4]">Используйте email и пароль вашей учётной записи.</p>
+    <div className="grid gap-8">
+      <div className="space-y-1">
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#ff5500]">Добро пожаловать</p>
+        <h1 className="text-3xl font-black uppercase text-white" style={{ letterSpacing: "-0.02em" }}>
+          Войти
+        </h1>
+        <p className="text-sm text-[#666666]">Введите email и пароль вашей учётной записи.</p>
       </div>
 
-      <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
+      <form className="grid gap-5" onSubmit={handleSubmit(onSubmit)}>
         <FormField label="Email" error={errors.email?.message}>
-          <Input {...register("email")} type="email" />
+          <Input {...register("email")} type="email" placeholder="example@mail.com" />
         </FormField>
         <FormField label="Пароль" error={errors.password?.message}>
-          <Input {...register("password")} type="password" />
+          <Input {...register("password")} type="password" placeholder="••••••••" />
         </FormField>
-        <div className="flex flex-wrap gap-3">
-          <Button type="submit" disabled={isSubmitting}>
-            Войти
-          </Button>
-          <Button type="button" variant="link" onClick={() => navigate("/forgot-password")}>
+
+        <div className="flex items-center justify-between">
+          <Link to="/forgot-password" className="text-xs text-[#666666] hover:text-[#ff5500] transition-colors">
             Забыли пароль?
-          </Button>
+          </Link>
         </div>
+
+        <Button type="submit" disabled={isSubmitting} size="lg" className="w-full">
+          {isSubmitting ? "Вход..." : "Войти"}
+        </Button>
       </form>
+
+      <p className="text-center text-sm text-[#666666]">
+        Нет аккаунта?{" "}
+        <Link to="/register" className="font-semibold text-[#ff5500] hover:text-[#ff7733] transition-colors">
+          Зарегистрироваться
+        </Link>
+      </p>
     </div>
   );
 }

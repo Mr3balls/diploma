@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/shared/lib/cn";
 
@@ -7,12 +7,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-[#1a44cc]",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-[#0a3575]",
-        outline: "border border-[#0a3575] bg-transparent text-white hover:bg-[#002366]",
+        default: "bg-primary text-primary-foreground hover:bg-[#cc4400]",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-[#2d2d2d]",
+        outline: "border border-[#2d2d2d] bg-transparent text-white hover:bg-[#2a2a2a]",
         destructive: "bg-destructive text-destructive-foreground hover:bg-red-600",
-        ghost: "text-[#90afd4] hover:bg-[#002366] hover:text-white",
-        link: "text-[#90b8ff] underline-offset-4 hover:underline",
+        ghost: "text-[#9e9e9e] hover:bg-[#2a2a2a] hover:text-white",
+        link: "text-[#ffaa77] underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",

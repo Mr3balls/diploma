@@ -7,8 +7,10 @@ import type {
 } from "@/shared/types/api";
 
 export const notificationsApi = {
-  async list() {
-    const { data } = await apiClient.get<ListResponse<Notification>>("/notifications");
+  async list(limit = 20, offset = 0) {
+    const { data } = await apiClient.get<ListResponse<Notification>>("/notifications", {
+      params: { limit, offset },
+    });
     return data;
   },
   async unreadCount() {

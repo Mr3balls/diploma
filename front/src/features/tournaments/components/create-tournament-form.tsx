@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -109,7 +109,7 @@ export function CreateTournamentForm({
       <button
         type="button"
         onClick={() => setAdvanced((v) => !v)}
-        className="text-left text-xs text-[#4a7ab5] hover:text-white transition-colors"
+        className="text-left text-xs text-[#666666] hover:text-white transition-colors"
       >
         {advanced ? "▲ Скрыть дополнительные параметры" : "▼ Дополнительные параметры"}
       </button>

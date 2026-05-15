@@ -19,6 +19,7 @@ func NewUserService(users *repository.UserRepository) *UserService {
 type UpdateProfileInput struct {
 	FirstName string
 	LastName  string
+	Nickname  string
 	Phone     string
 	AvatarURL *string
 }
@@ -43,7 +44,12 @@ func (s *UserService) UpdateMe(ctx context.Context, userID string, in UpdateProf
 	}
 	user.FirstName = in.FirstName
 	user.LastName = in.LastName
-	user.Phone = in.Phone
+	if in.Nickname != "" {
+		user.Nickname = in.Nickname
+	}
+	if in.Phone != "" {
+		user.Phone = in.Phone
+	}
 	user.AvatarURL = in.AvatarURL
 	if err := s.users.UpdateProfile(ctx, user); err != nil {
 		return nil, err

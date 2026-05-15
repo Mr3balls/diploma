@@ -1,14 +1,14 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { cn } from "@/shared/lib/cn";
 
 type BadgeTone = "default" | "success" | "warning" | "danger" | "muted";
 
 const toneClassMap: Record<BadgeTone, string> = {
-  default: "bg-[#002366] text-white",
-  success: "bg-emerald-900 text-emerald-300",
-  warning: "bg-amber-900 text-amber-300",
-  danger: "bg-red-900 text-red-300",
-  muted: "bg-[#001f52] text-[#90afd4]",
+  default: "bg-[#ff5500]/20 text-[#ff7733]",
+  success: "bg-emerald-900/60 text-emerald-400",
+  warning: "bg-amber-900/60 text-amber-400",
+  danger: "bg-red-900/60 text-red-400",
+  muted: "bg-[#2a2a2a] text-[#9e9e9e]",
 };
 
 export function Badge({

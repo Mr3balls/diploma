@@ -1,5 +1,5 @@
 import { apiClient } from "@/shared/api/client";
-import type { TournamentBracketResponse } from "@/shared/types/api";
+import type { PlacementsResponse, TournamentBracketResponse } from "@/shared/types/api";
 
 export const bracketApi = {
   async getByTournamentId(tournamentId: string) {
@@ -20,6 +20,10 @@ export const bracketApi = {
   },
   async advanceToPlayoff(tournamentId: string) {
     const { data } = await apiClient.post<TournamentBracketResponse>(`/tournaments/${tournamentId}/bracket/advance-to-playoff`);
+    return data;
+  },
+  async getPlacements(tournamentId: string) {
+    const { data } = await apiClient.get<PlacementsResponse>(`/tournaments/${tournamentId}/placements`);
     return data;
   },
 };

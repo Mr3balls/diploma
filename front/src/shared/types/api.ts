@@ -165,7 +165,11 @@ export type TeamMember = {
   team_id?: string;
   user_id?: string | null;
   nickname?: string | null;
+  email?: string | null;
   role: "captain" | "player" | "substitute" | string;
+  member_role?: string | null;
+  is_captain?: boolean;
+  is_substitute?: boolean;
   confirmation_status: MemberConfirmationStatus;
   display_name?: string | null;
 };
@@ -226,10 +230,8 @@ export type Notification = {
   message: string;
   is_read?: boolean;
   created_at?: string;
-  team_member_id?: string | null;
-  match_id?: string | null;
-  tournament_id?: string | null;
-  payload?: Record<string, unknown> | null;
+  payload_json?: Record<string, unknown> | null;
+  action_payload_json?: Record<string, unknown> | null;
 };
 
 export type AuditLog = {
@@ -292,6 +294,18 @@ export type ImportBatchDetailsResponse = {
 export type TeamDetailsResponse = {
   team: Team;
   members: TeamMember[];
+};
+
+export type TeamPlacement = {
+  team_id: string;
+  team_name: string;
+  place_from: number;
+  place_to: number;
+  is_active: boolean;
+};
+
+export type PlacementsResponse = {
+  placements: TeamPlacement[];
 };
 
 export type ValidateGoogleSheetResponse = {

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+﻿import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Plus,
@@ -66,7 +66,7 @@ export function ChallongeTournamentPage() {
 
   if (error || !data) {
     return (
-      <div className="page-shell py-16 text-center text-[#90afd4]">
+      <div className="page-shell py-16 text-center text-[#9e9e9e]">
         Турнир не найден или у вас нет доступа.
       </div>
     );
@@ -116,7 +116,7 @@ export function ChallongeTournamentPage() {
               {STATUS_LABEL[tournament.status] ?? tournament.status}
             </Badge>
           </div>
-          <p className="mt-1 text-sm text-[#90afd4]">
+          <p className="mt-1 text-sm text-[#9e9e9e]">
             {tournament.format === "double_elimination"
               ? "Double Elimination"
               : "Single Elimination"}{" "}
@@ -164,7 +164,7 @@ export function ChallongeTournamentPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
         {/* Left: Participant panel */}
         <div className="space-y-4">
-          <Card className="border-[#0a3575] bg-[#001a4a]">
+          <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -206,7 +206,7 @@ export function ChallongeTournamentPage() {
                   {showBulk && (
                     <div className="space-y-2">
                       <textarea
-                        className="w-full rounded-xl border border-[#0a3575] bg-[#001538] px-3 py-2 text-sm text-white placeholder-[#4a7ab5] focus:outline-none focus:ring-1 focus:ring-[#2255ff]"
+                        className="w-full rounded-xl border border-[#2d2d2d] bg-[#111111] px-3 py-2 text-sm text-white placeholder-[#666666] focus:outline-none focus:ring-1 focus:ring-[#ff5500]"
                         rows={6}
                         placeholder={"Один участник на строку:\nАлексей\nМихаил\nСергей"}
                         value={bulkText}
@@ -227,17 +227,17 @@ export function ChallongeTournamentPage() {
 
               {/* Participant list */}
               {participants.length === 0 ? (
-                <p className="py-4 text-center text-sm text-[#90afd4]">
+                <p className="py-4 text-center text-sm text-[#9e9e9e]">
                   Пока нет участников
                 </p>
               ) : (
-                <ul className="divide-y divide-[#0a3575]">
+                <ul className="divide-y divide-[#2d2d2d]">
                   {[...participants]
                     .sort((a, b) => a.seed - b.seed)
                     .map((p) => (
                       <li key={p.id} className="flex items-center justify-between gap-2 py-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-6 shrink-0 text-right text-xs text-[#4a7ab5]">
+                          <span className="w-6 shrink-0 text-right text-xs text-[#666666]">
                             {p.seed}
                           </span>
                           <span className="truncate text-sm text-white">{p.name}</span>
@@ -245,14 +245,14 @@ export function ChallongeTournamentPage() {
                             <Trophy className="h-3.5 w-3.5 shrink-0 text-yellow-400" />
                           )}
                           {p.status === "eliminated" && (
-                            <span className="text-xs text-[#4a7ab5]">выбыл</span>
+                            <span className="text-xs text-[#666666]">выбыл</span>
                           )}
                         </div>
                         {isManager && isDraftOrReady && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 shrink-0 p-0 text-[#4a7ab5] hover:text-red-400"
+                            className="h-6 w-6 shrink-0 p-0 text-[#666666] hover:text-red-400"
                             disabled={remove.isPending}
                             onClick={() => remove.mutate(p.id)}
                           >
@@ -288,8 +288,8 @@ export function ChallongeTournamentPage() {
               slug={slug!}
             />
           ) : (
-            <Card className="border-[#0a3575] bg-[#001a4a]">
-              <CardContent className="py-12 text-center text-sm text-[#90afd4]">
+            <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
+              <CardContent className="py-12 text-center text-sm text-[#9e9e9e]">
                 {participants.length < 2
                   ? "Добавьте участников и нажмите «Начать»"
                   : "Нажмите «Начать» для генерации сетки"}
@@ -307,7 +307,7 @@ function StandingsCard({ slug }: { slug: string }) {
   if (!data?.standings?.length) return null;
 
   return (
-    <Card className="border-[#0a3575] bg-[#001a4a]">
+    <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <Trophy className="h-4 w-4 text-yellow-400" />
@@ -315,14 +315,14 @@ function StandingsCard({ slug }: { slug: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-[#0a3575]">
+        <ul className="divide-y divide-[#2d2d2d]">
           {data.standings.map((s) => (
             <li key={s.seed} className="flex items-center justify-between py-2 text-sm">
               <span className="text-white">
                 {s.rank}. Сид #{s.seed}
                 {s.tied ? " (tied)" : ""}
               </span>
-              <span className="text-[#90afd4]">
+              <span className="text-[#9e9e9e]">
                 {s.wins}W / {s.losses}L
               </span>
             </li>

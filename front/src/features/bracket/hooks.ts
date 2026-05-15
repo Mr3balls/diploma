@@ -42,6 +42,14 @@ export function useReseedBracket(tournamentId: string) {
   });
 }
 
+export function useTournamentPlacements(tournamentId?: string) {
+  return useQuery({
+    queryKey: tournamentId ? queryKeys.tournamentPlacements(tournamentId) : ["placements", "empty"],
+    queryFn: () => bracketApi.getPlacements(tournamentId!),
+    enabled: Boolean(tournamentId),
+  });
+}
+
 export function useAdvanceToPlayoff(tournamentId: string) {
   const queryClient = useQueryClient();
   return useMutation({

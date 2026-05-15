@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { useParams, Navigate } from "react-router-dom";
+﻿import { useEffect, useRef, useState } from "react";
+import { useParams, Navigate, Link } from "react-router-dom";
+import { ArrowLeft, Settings, Users, FileSpreadsheet, Trophy, Swords, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Plus, Shuffle, Play, Trash2 } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -18,7 +19,7 @@ import {
   useShuffleTournamentParticipants,
   useStartTournamentBracket,
 } from "@/features/tournaments/hooks";
-import { useAdminCreateTeam, useApproveTeam, useRejectTeam, useTeam, useTournamentAdminTeams, useRemoveMember } from "@/features/teams/hooks";
+import { useAdminCreateTeam, useAdminDeleteTeam, useApproveTeam, useRejectTeam, useTeam, useTournamentAdminTeams, useRemoveMember } from "@/features/teams/hooks";
 import { useGenerateBracket, useRegenerateBracket, useReseedBracket, useTournamentBracket, useAdvanceToPlayoff } from "@/features/bracket/hooks";
 import {
   useApproveResult,
@@ -47,8 +48,8 @@ import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
 import { Select } from "@/shared/ui/select";
 import { Button } from "@/shared/ui/button";
-import { PageHeader } from "@/shared/ui/page-header";
 import { SectionCard } from "@/shared/ui/section";
+import { cn } from "@/shared/lib/cn";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { ErrorState } from "@/shared/ui/error-state";
 import { Spinner } from "@/shared/ui/spinner";
@@ -171,14 +172,14 @@ function AdminCreateTeamForm({ tournamentId }: { tournamentId: string }) {
   }
 
   return (
-    <Card className="border-[#0a3575]">
+    <Card className="border-[#2d2d2d]">
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Новая команда</CardTitle>
       </CardHeader>
       <CardContent>
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-1">
-            <label className="text-sm text-[#90afd4]">Название команды</label>
+            <label className="text-sm text-[#9e9e9e]">Название команды</label>
             <Input
               placeholder="Название команды"
               value={teamName}
@@ -187,7 +188,7 @@ function AdminCreateTeamForm({ tournamentId }: { tournamentId: string }) {
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-sm text-[#90afd4]">Игроки (первый — капитан)</label>
+            <label className="text-sm text-[#9e9e9e]">Игроки (первый — капитан)</label>
             {members.map((m, i) => (
               <div key={i} className="flex gap-2 md:max-w-sm">
                 <Input
@@ -296,7 +297,7 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
       {showBulk && (
         <div className="space-y-2">
           <textarea
-            className="w-full rounded-xl border border-[#0a3575] bg-[#001538] px-3 py-2 text-sm text-white placeholder-[#4a7ab5] focus:outline-none"
+            className="w-full rounded-xl border border-[#2d2d2d] bg-[#111111] px-3 py-2 text-sm text-white placeholder-[#666666] focus:outline-none"
             rows={5}
             placeholder={"Один участник на строку:\nАлексей\nМихаил\nСергей"}
             value={bulkText}
@@ -311,7 +312,7 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
       {participants.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-[#90afd4]">Участники: {participants.length}</span>
+            <span className="text-sm text-[#9e9e9e]">Участники: {participants.length}</span>
             <Button
               variant="secondary"
               size="sm"
@@ -322,17 +323,17 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
               Перемешать
             </Button>
           </div>
-          <ul className="divide-y divide-[#0a3575] rounded-xl border border-[#0a3575]">
+          <ul className="divide-y divide-[#2d2d2d] rounded-xl border border-[#2d2d2d]">
             {[...participants].sort((a, b) => a.seed - b.seed).map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-5 text-right text-xs text-[#4a7ab5]">{p.seed}</span>
+                  <span className="w-5 text-right text-xs text-[#666666]">{p.seed}</span>
                   <span className="truncate text-sm text-white">{p.name}</span>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 shrink-0 p-0 text-[#4a7ab5] hover:text-red-400"
+                  className="h-6 w-6 shrink-0 p-0 text-[#666666] hover:text-red-400"
                   disabled={remove.isPending}
                   onClick={() => void remove.mutateAsync(p.id).catch((err) => toast.error(getErrorMessage(err)))}
                 >
@@ -385,6 +386,7 @@ export function TournamentAdminPage() {
   const approveTeamMutation = useApproveTeam(id);
   const rejectTeamMutation = useRejectTeam(id);
   const removeMemberMutation = useRemoveMember(id);
+  const deleteTeamMutation = useAdminDeleteTeam(id);
 
   const generateBracketMutation = useGenerateBracket(id);
   const regenerateBracketMutation = useRegenerateBracket(id);
@@ -403,6 +405,7 @@ export function TournamentAdminPage() {
   const importsQuery = useTournamentImports(id, access.canAccessAdmin);
   const [importPreview, setImportPreview] = useState<import("@/shared/types/api").ImportPreviewResponse | null>(null);
 
+  const [activeSection, setActiveSection] = useState("settings");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const selectedTeamQuery = useTeam(selectedTeamId ?? undefined, Boolean(selectedTeamId) && access.canAccessAdmin);
 
@@ -536,8 +539,10 @@ export function TournamentAdminPage() {
   }
 
   async function handleRejectTeam(teamId: string) {
+    const reason = window.prompt("Укажите причину отклонения:");
+    if (!reason || reason.trim().length < 2) return;
     try {
-      await rejectTeamMutation.mutateAsync(teamId);
+      await rejectTeamMutation.mutateAsync({ teamId, reason: reason.trim() });
       toast.success("Команда отклонена");
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -550,6 +555,17 @@ export function TournamentAdminPage() {
       await removeMemberMutation.mutateAsync({ teamId: selectedTeamId, memberId });
       toast.success("Участник удалён");
       await selectedTeamQuery.refetch();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function handleDeleteTeam(teamId: string) {
+    if (!window.confirm("Удалить команду? Это действие нельзя отменить.")) return;
+    try {
+      await deleteTeamMutation.mutateAsync(teamId);
+      if (selectedTeamId === teamId) setSelectedTeamId(null);
+      toast.success("Команда удалена");
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -659,23 +675,72 @@ export function TournamentAdminPage() {
     ? (participantsQuery.data?.items.find((p) => p.id === tournament.winner_participant_id)?.name ?? null)
     : null;
 
+  const NAV = [
+    { key: "settings",     label: "Настройки",   icon: Settings },
+    ...(isIndividual
+      ? [{ key: "participants", label: "Участники", icon: Users }]
+      : [
+          { key: "teams",  label: "Команды",  icon: Users },
+          { key: "import", label: "Импорт",   icon: FileSpreadsheet },
+        ]
+    ),
+    { key: "bracket", label: "Сетка",   icon: Trophy },
+    { key: "matches", label: "Матчи",   icon: Swords },
+    { key: "audit",   label: "Аудит",   icon: ClipboardList },
+  ];
+
   return (
-    <div className="grid gap-6">
-      <PageHeader
-        title={tournament.title}
-        description="Управление турниром"
-      />
-      {winnerName && (
-        <div className="flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-5 py-4">
-          <span className="text-2xl">🏆</span>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-yellow-400">Победитель турнира</p>
-            <p className="text-lg font-semibold text-white">{winnerName}</p>
+    <div className="grid gap-0">
+
+      {/* ── Banner ──────────────────────────────────────────────── */}
+      <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", background: "#111111", borderBottom: "1px solid #2d2d2d" }}>
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
+          <Link to={`/tournaments/${id}`} className="inline-flex items-center gap-1.5 text-xs text-[#666666] hover:text-[#ff5500] transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5" /> Вернуться к турниру
+          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">Управление</p>
+              <h1 className="font-black uppercase text-white" style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)", letterSpacing: "-0.03em" }}>
+                {tournament.title}
+              </h1>
+            </div>
+            {winnerName && (
+              <div className="flex items-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5">
+                <Trophy className="h-4 w-4 text-yellow-400" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-yellow-500">Победитель</p>
+                  <p className="text-sm font-semibold text-white">{winnerName}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* tab nav */}
+          <div className="flex gap-0 border-b border-[#2d2d2d] overflow-x-auto">
+            {NAV.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveSection(key)}
+                className={cn(
+                  "relative flex items-center gap-2 px-4 py-3 text-sm font-semibold whitespace-nowrap transition-colors",
+                  activeSection === key
+                    ? "text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#ff5500]"
+                    : "text-[#666666] hover:text-[#9e9e9e]",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+      </div>
 
-      <SectionCard title="Основные настройки" description="Редактирование параметров и смена статуса.">
+      {/* ── Content ─────────────────────────────────────────────── */}
+      <div className="py-8 grid gap-6">
+
+      {activeSection === "settings" && <SectionCard title="Основные настройки" description="Редактирование параметров и смена статуса.">
         <div className="grid gap-6">
           <CreateTournamentForm
             defaultValues={{
@@ -697,9 +762,9 @@ export function TournamentAdminPage() {
             isBusy={changeStatusMutation.isPending}
           />
         </div>
-      </SectionCard>
+      </SectionCard>}
 
-      <SectionCard
+      {activeSection === "settings" && <SectionCard
         title="Со-организаторы"
         description="Добавьте пользователей, которые смогут управлять турниром наравне с вами."
       >
@@ -708,17 +773,17 @@ export function TournamentAdminPage() {
           onRemove={handleRemoveManager}
           isBusy={addManagerMutation.isPending || removeManagerMutation.isPending}
         />
-      </SectionCard>
+      </SectionCard>}
 
       {tournament.registration_mode === "individual" ? (
         <>
-          <SectionCard
+          {activeSection === "participants" && <SectionCard
             title="Участники"
             description="Добавьте участников по имени, перемешайте посев и запустите сетку."
           >
             <IndividualParticipantPanel tournamentId={id} />
-          </SectionCard>
-          {(bracketQuery.data?.matches ?? []).length > 0 && (
+          </SectionCard>}
+          {activeSection === "bracket" && (bracketQuery.data?.matches ?? []).length > 0 && (
             <SectionCard title="Сетка" description="Турнирная сетка по участникам.">
               <BracketView
                 matches={bracketQuery.data?.matches ?? []}
@@ -731,14 +796,7 @@ export function TournamentAdminPage() {
         </>
       ) : (
         <>
-          <SectionCard
-            title="Игроки (пул)"
-            description="Игроки, записавшиеся индивидуально. Добавляйте вручную или принимайте заявки."
-          >
-            <IndividualParticipantPanel tournamentId={id} hideStart />
-          </SectionCard>
-
-          <SectionCard
+          {activeSection === "import" && <SectionCard
             title="Импорт из Google Sheets"
             description="Загрузите команды из публичной таблицы Google Sheets."
           >
@@ -757,14 +815,14 @@ export function TournamentAdminPage() {
                 />
               )}
               {importsQuery.data?.items.length ? (
-                <div className="text-xs text-[#90afd4]">
+                <div className="text-xs text-[#9e9e9e]">
                   Последних импортов: {importsQuery.data.items.length}
                 </div>
               ) : null}
             </div>
-          </SectionCard>
+          </SectionCard>}
 
-          <SectionCard title="Команды" description="Одобрение и управление зарегистрированными командами.">
+          {activeSection === "teams" && <SectionCard title="Команды" description="Одобрение и управление зарегистрированными командами.">
             <div className="grid gap-4">
               <AdminCreateTeamForm tournamentId={id} />
               {teamsQuery.isLoading ? (
@@ -778,6 +836,7 @@ export function TournamentAdminPage() {
                   onOpen={setSelectedTeamId}
                   onApprove={handleApproveTeam}
                   onReject={handleRejectTeam}
+                  onDelete={handleDeleteTeam}
                 />
               ) : (
                 <EmptyState title="Команд нет" description="Пока никто не зарегистрировался." />
@@ -786,8 +845,8 @@ export function TournamentAdminPage() {
               {selectedTeamQuery.data && selectedTeamId ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-[#4a7ab5]">Состав команды</p>
-                    <Button variant="ghost" size="sm" className="text-xs text-[#4a7ab5]" onClick={() => setSelectedTeamId(null)}>
+                    <p className="text-xs text-[#666666]">Состав команды</p>
+                    <Button variant="ghost" size="sm" className="text-xs text-[#666666]" onClick={() => setSelectedTeamId(null)}>
                       Закрыть
                     </Button>
                   </div>
@@ -799,9 +858,9 @@ export function TournamentAdminPage() {
                 </div>
               ) : null}
             </div>
-          </SectionCard>
+          </SectionCard>}
 
-          <SectionCard
+          {activeSection === "bracket" && <SectionCard
             title="Сетка"
             description="Генерация сетки по зарегистрированным командам. Перегенерация сбрасывает текущую сетку."
             actions={
@@ -823,7 +882,7 @@ export function TournamentAdminPage() {
               <div className="space-y-4">
                 {bracketQuery.data.bracket.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#90afd4]">Плей-офф</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">Плей-офф</h3>
                     <BracketView
                       matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)}
                       teams={teamsQuery.data?.items ?? []}
@@ -858,7 +917,7 @@ export function TournamentAdminPage() {
                 {/* Playoff bracket after advancement */}
                 {bracketQuery.data.bracket.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#90afd4]">Плей-офф</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">Плей-офф</h3>
                     <BracketView
                       matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)}
                       teams={teamsQuery.data?.items ?? []}
@@ -898,9 +957,9 @@ export function TournamentAdminPage() {
                 tournamentId={id}
               />
             )}
-          </SectionCard>
+          </SectionCard>}
 
-          <SectionCard title="Посев" description="Перетащите команды для изменения порядка посева.">
+          {activeSection === "bracket" && <SectionCard title="Посев" description="Перетащите команды для изменения порядка посева.">
             <ReseedBoard
               items={reseedItems}
               onChange={setReseedItems}
@@ -908,19 +967,19 @@ export function TournamentAdminPage() {
               disabled={!canReseed}
               saving={reseedBracketMutation.isPending}
             />
-          </SectionCard>
+          </SectionCard>}
         </>
       )}
 
-      <SectionCard title="Матчи" description="Просмотр и управление результатами матчей.">
+      {activeSection === "matches" && <SectionCard title="Матчи" description="Просмотр и управление результатами матчей.">
         {scheduleMatch && (
-          <Card className="mb-4 border-[#0a3575]">
+          <Card className="mb-4 border-[#2d2d2d]">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Время матча — Раунд {scheduleMatch.round_number ?? "—"} · Слот {scheduleMatch.slot_index ?? "—"}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="grid gap-1">
-                <label className="text-sm text-[#90afd4]">Дата и время</label>
+                <label className="text-sm text-[#9e9e9e]">Дата и время</label>
                 <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} className="md:max-w-sm" />
               </div>
               <div className="flex gap-3">
@@ -933,13 +992,13 @@ export function TournamentAdminPage() {
           </Card>
         )}
         {resultMatch && (
-          <Card className="mb-4 border-[#0a3575]">
+          <Card className="mb-4 border-[#2d2d2d]">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Победитель — Раунд {resultMatch.round_number ?? "—"} · Слот {resultMatch.slot_index ?? "—"}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
-                <p className="text-sm text-[#90afd4]">Выберите победителя:</p>
+                <p className="text-sm text-[#9e9e9e]">Выберите победителя:</p>
                 {isIndividual ? (
                   <>
                     {resultMatch.participant1_id && (
@@ -989,7 +1048,7 @@ export function TournamentAdminPage() {
                 )}
               </div>
               <div className="grid gap-1">
-                <label className="text-sm text-[#90afd4]">Счёт (опционально)</label>
+                <label className="text-sm text-[#9e9e9e]">Счёт (опционально)</label>
                 <Input placeholder="Напр. 2:1" value={resultScore} onChange={(e) => setResultScore(e.target.value)} className="md:max-w-sm" />
               </div>
               <div className="flex gap-3">
@@ -1019,9 +1078,9 @@ export function TournamentAdminPage() {
         ) : (
           <EmptyState title="Матчей нет" description="После генерации сетки матчи появятся здесь." />
         )}
-      </SectionCard>
+      </SectionCard>}
 
-      <SectionCard title="Журнал аудита" description="История действий по турниру.">
+      {activeSection === "audit" && <SectionCard title="Журнал аудита" description="История действий по турниру.">
         {auditQuery.isLoading ? (
           <Spinner />
         ) : auditQuery.isError ? (
@@ -1054,7 +1113,9 @@ export function TournamentAdminPage() {
         ) : (
           <EmptyState title="Журнал пуст" description="Действий пока не было." />
         )}
-      </SectionCard>
+      </SectionCard>}
+
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Trophy } from "lucide-react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -80,10 +80,10 @@ function MatchCard({
   }
 
   return (
-    <Card className="border-[#0a3575] bg-[#001a4a]">
+    <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xs text-[#90afd4]">
+          <CardTitle className="text-xs text-[#9e9e9e]">
             {match.bracket_section} · #{match.slot_index ?? match.global_number ?? "—"}
           </CardTitle>
           <div className="flex items-center gap-1">
@@ -103,7 +103,7 @@ function MatchCard({
             <div
               key={id ?? name}
               className={`flex items-center justify-between rounded-lg px-2 py-1 text-sm ${
-                isWinner ? "bg-[#2255ff]/20 font-semibold text-white" : "text-[#90afd4]"
+                isWinner ? "bg-[#ff5500]/20 font-semibold text-white" : "text-[#9e9e9e]"
               }`}
             >
               <span className="truncate">{name}</span>
@@ -114,7 +114,7 @@ function MatchCard({
 
         {/* Score */}
         {match.score_text && (
-          <p className="pt-1 text-center text-xs text-[#90afd4]">{match.score_text}</p>
+          <p className="pt-1 text-center text-xs text-[#9e9e9e]">{match.score_text}</p>
         )}
 
         {/* Actions */}
@@ -126,7 +126,7 @@ function MatchCard({
 
         {picking && (
           <div className="mt-2 space-y-1">
-            <p className="text-xs text-[#90afd4]">Победитель:</p>
+            <p className="text-xs text-[#9e9e9e]">Победитель:</p>
             {[
               { id: match.participant1_id!, name: p1name },
               { id: match.participant2_id!, name: p2name },
@@ -157,7 +157,7 @@ function MatchCard({
           <Button
             size="sm"
             variant="ghost"
-            className="mt-1 w-full text-xs text-[#90afd4]"
+            className="mt-1 w-full text-xs text-[#9e9e9e]"
             disabled={resetMatch.isPending}
             onClick={() => resetMatch.mutate(match.id)}
           >
@@ -185,8 +185,8 @@ export function ChallongeBracket({
 
   if (!rounds.length) {
     return (
-      <Card className="border-[#0a3575]">
-        <CardContent className="py-8 text-sm text-[#90afd4]">
+      <Card className="border-[#2d2d2d]">
+        <CardContent className="py-8 text-sm text-[#9e9e9e]">
           Сетка ещё не сгенерирована — добавьте участников и нажмите «Начать».
         </CardContent>
       </Card>
@@ -201,7 +201,7 @@ export function ChallongeBracket({
             key={`${round.section}-${round.roundNumber}`}
             className="w-[230px] shrink-0 space-y-3"
           >
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[#90afd4]">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-[#9e9e9e]">
               {round.section !== "WB" ? `${round.section} · ` : ""}Раунд {round.roundNumber}
             </h3>
             {round.matches

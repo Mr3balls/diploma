@@ -2,8 +2,10 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"esports-backend/internal/apperror"
+	tok "esports-backend/internal/pkg/tokens"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -66,6 +68,22 @@ func (h *NotificationHandler) ReadAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "all notifications marked read"})
+}
+
+// Stream holds an SSE connection for the authenticated user.
+// Token is passed as ?token=<access_token> because EventSource doesn't support headers.
+func (h *NotificationHandler) Stream(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if token == "" {
+		writeError(w, apperror.Unauthorized("missing token"))
+		return
+	}
+	claims, err := tok.ParseAccessToken(h.deps.JWTSecret, token)
+	if err != nil {
+		writeError(w, apperror.Unauthorized("invalid or expired token"))
+		return
+	}
+	h.deps.Hub.ServeUserSSE(w, r, claims.UserID)
 }
 
 func (h *NotificationHandler) Action(w http.ResponseWriter, r *http.Request) {

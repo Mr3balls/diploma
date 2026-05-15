@@ -1,4 +1,4 @@
-import type { Match, Team } from "@/shared/types/api";
+﻿import type { Match, Team } from "@/shared/types/api";
 import type { Participant } from "@/features/challonge/types";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Trophy } from "lucide-react";
@@ -37,10 +37,10 @@ function ResultCard({
   const win2 = !!winnerId && winnerId === side2Id;
 
   return (
-    <Card className="border-[#0a3575] bg-[#001a4a]">
+    <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
       <CardContent className="p-4 space-y-2">
         {match.scheduled_at && (
-          <p className="text-xs text-[#4a7ab5]">{formatDateTime(match.scheduled_at)}</p>
+          <p className="text-xs text-[#666666]">{formatDateTime(match.scheduled_at)}</p>
         )}
 
         <div className="space-y-1">
@@ -52,8 +52,8 @@ function ResultCard({
               key={name}
               className={`flex items-center justify-between rounded px-3 py-1.5 text-sm ${
                 won
-                  ? "bg-[#2255ff]/20 font-semibold text-white"
-                  : "text-[#90afd4]"
+                  ? "bg-[#ff5500]/20 font-semibold text-white"
+                  : "text-[#9e9e9e]"
               }`}
             >
               <span className="truncate">{name}</span>
@@ -63,11 +63,11 @@ function ResultCard({
         </div>
 
         {match.score_text && (
-          <p className="text-center text-xs font-medium text-[#90afd4]">{match.score_text}</p>
+          <p className="text-center text-xs font-medium text-[#9e9e9e]">{match.score_text}</p>
         )}
 
         {match.round_number != null && (
-          <p className="text-xs text-[#4a7ab5]">Раунд {match.round_number}</p>
+          <p className="text-xs text-[#666666]">Раунд {match.round_number}</p>
         )}
       </CardContent>
     </Card>
@@ -90,7 +90,7 @@ export function ResultsView({
 
   if (finished.length === 0) {
     return (
-      <div className="rounded-xl border border-[#0a3575] px-6 py-10 text-center text-sm text-[#4a7ab5]">
+      <div className="rounded-xl border border-[#2d2d2d] px-6 py-10 text-center text-sm text-[#666666]">
         Завершённых матчей пока нет
       </div>
     );

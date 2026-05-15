@@ -56,9 +56,11 @@ func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Ha
 	r.Get("/tournaments/{id}", tournamentHandler.GetPublic)
 	r.Get("/tournaments/{id}/teams", tournamentHandler.GetPublicTeams)
 	r.Get("/tournaments/{id}/bracket", tournamentHandler.GetBracket)
+	r.Get("/tournaments/{id}/placements", bracketHandler.GetPlacements)
 	r.Get("/tournaments/{id}/matches", tournamentHandler.GetPublicMatches)
 	r.Get("/tournaments/{id}/participants", tournamentHandler.GetParticipants)
 	r.Get("/teams/{id}", teamHandler.GetTeam)
+	r.Get("/notifications/stream", notificationHandler.Stream) // SSE, auth via ?token=
 
 	r.Group(func(pr chi.Router) {
 		pr.Use(mw.AuthRequired(cfg.AccessTokenSecret))
@@ -91,8 +93,10 @@ func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Ha
 		pr.Get("/tournaments/{id}/imports", importHandler.ListImports)
 		pr.Get("/imports/{batchId}", importHandler.GetImport)
 
+		pr.Get("/tournaments/{id}/my-team", teamHandler.GetMyTeam)
 		pr.Get("/tournaments/{id}/admin/teams", teamHandler.GetAdminTeams)
 		pr.Post("/tournaments/{id}/admin/teams", teamHandler.AdminCreateTeam)
+		pr.Delete("/tournaments/{id}/admin/teams/{teamId}", teamHandler.AdminDeleteTeam)
 		pr.Patch("/teams/{id}", teamHandler.PatchTeam)
 		pr.Post("/teams/{id}/approve", teamHandler.ApproveTeam)
 		pr.Post("/teams/{id}/reject", teamHandler.RejectTeam)

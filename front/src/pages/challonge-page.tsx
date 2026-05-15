@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -63,12 +63,12 @@ export function ChallongePage() {
     <div className="page-shell space-y-8 py-8">
       <div>
         <h1 className="text-2xl font-semibold">Новый турнир</h1>
-        <p className="mt-1 text-sm text-[#90afd4]">
+        <p className="mt-1 text-sm text-[#9e9e9e]">
           Создайте сетку, добавьте участников и запустите турнир в один клик
         </p>
       </div>
 
-      <Card className="mx-auto max-w-lg border-[#0a3575] bg-[#001a4a]">
+      <Card className="mx-auto max-w-lg border-[#2d2d2d] bg-[#1a1a1a]">
         <CardHeader>
           <CardTitle>Параметры турнира</CardTitle>
         </CardHeader>
@@ -81,7 +81,7 @@ export function ChallongePage() {
             <FormField label="Формат" error={errors.format?.message}>
               <select
                 {...register("format")}
-                className="w-full rounded-xl border border-[#0a3575] bg-[#001538] px-3 py-2 text-sm text-white"
+                className="w-full rounded-xl border border-[#2d2d2d] bg-[#111111] px-3 py-2 text-sm text-white"
               >
                 <option value="single_elimination">Single Elimination</option>
                 <option value="double_elimination">Double Elimination</option>
@@ -91,7 +91,7 @@ export function ChallongePage() {
             <FormField label="Приватность" error={errors.privacy?.message}>
               <select
                 {...register("privacy")}
-                className="w-full rounded-xl border border-[#0a3575] bg-[#001538] px-3 py-2 text-sm text-white"
+                className="w-full rounded-xl border border-[#2d2d2d] bg-[#111111] px-3 py-2 text-sm text-white"
               >
                 <option value="public">Публичный</option>
                 <option value="private">Приватный</option>

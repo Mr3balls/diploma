@@ -83,6 +83,7 @@ func (s *TournamentService) Create(ctx context.Context, ownerUserID string, in C
 		Rules:                in.Rules,
 		Location:             in.Location,
 		MaxTeams:             in.MaxTeams,
+		MaxParticipants:      in.MaxTeams,
 		Format:               in.Format,
 		GroupCount:           in.GroupCount,
 		Status:               entity.TournamentStatusDraft,

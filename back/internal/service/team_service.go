@@ -34,7 +34,14 @@ type TeamDetails struct {
 }
 
 type ReplaceMemberInput struct {
-	Nickname string
+	Email string
+}
+
+func emailPrefix(email string) string {
+	if idx := strings.Index(email, "@"); idx > 0 {
+		return email[:idx]
+	}
+	return email
 }
 
 func isUniqueViolation(err error) bool {
@@ -50,7 +57,7 @@ type RegisterTeamInput struct {
 	CaptainUserID   string
 	CaptainNickname string
 	TeamName        string
-	MemberNicknames []string
+	MemberEmails    []string
 }
 
 func (s *TeamService) RegisterTeam(ctx context.Context, tournamentID string, in RegisterTeamInput) (*TeamDetails, error) {
@@ -63,6 +70,17 @@ func (s *TeamService) RegisterTeam(ctx context.Context, tournamentID string, in 
 	}
 	if tournament.RegistrationMode != "team" {
 		return nil, apperror.BadRequest("wrong_mode", "tournament is not team-based", nil)
+	}
+
+	if tournament.MaxTeams > 0 {
+		count, err := s.teams.CountByTournament(ctx, tournamentID)
+		if err != nil {
+			return nil, err
+		}
+		if count >= tournament.MaxTeams {
+			return nil, apperror.BadRequest("max_teams_reached",
+				fmt.Sprintf("достигнут лимит команд (%d)", tournament.MaxTeams), nil)
+		}
 	}
 
 	existing, _ := s.teams.FindCaptainMembership(ctx, in.CaptainUserID, tournamentID)
@@ -99,21 +117,27 @@ func (s *TeamService) RegisterTeam(ctx context.Context, tournamentID string, in 
 		return nil, err
 	}
 
-	for _, nickname := range in.MemberNicknames {
-		if nickname == "" {
+	for _, memberEmail := range in.MemberEmails {
+		if memberEmail == "" {
 			continue
 		}
-		var userEmail string
 		var userID *string
-		if u, err := s.users.GetByNickname(ctx, nickname); err == nil {
+		nickname := emailPrefix(memberEmail)
+		storedEmail := memberEmail
+		if u, err := s.users.GetByEmail(ctx, memberEmail); err == nil {
 			userID = &u.ID
-			userEmail = u.Email
+			if u.Nickname != "" {
+				nickname = u.Nickname
+			} else if u.FirstName != "" {
+				nickname = u.FirstName
+			}
 		}
 		member := &entity.TeamMember{
 			ID:                 uuid.NewString(),
 			TeamID:             team.ID,
 			UserID:             userID,
 			Nickname:           nickname,
+			Email:              &storedEmail,
 			MemberRole:         entity.MemberRolePlayer,
 			IsCaptain:          false,
 			ConfirmationStatus: entity.MemberConfirmationPendingConfirmation,
@@ -122,8 +146,19 @@ func (s *TeamService) RegisterTeam(ctx context.Context, tournamentID string, in 
 		if err := s.teams.CreateMember(ctx, member); err != nil {
 			return nil, err
 		}
-		if userEmail != "" && tournament != nil {
-			go s.email.SendTeamInvite(userEmail, team.Name, tournament.Title)
+		if tournament != nil {
+			go s.email.SendTeamInvite(memberEmail, team.Name, tournament.Title)
+		}
+		if userID != nil {
+			payload := map[string]string{"team_id": team.ID, "team_member_id": member.ID, "tournament_id": tournamentID}
+			_ = s.notifications.Create(ctx, &entity.Notification{
+				ID: uuid.NewString(), UserID: *userID,
+				Type:              entity.NotificationAddedToTeam,
+				Title:             "Вас добавили в команду",
+				Message:           fmt.Sprintf("Подтвердите участие в команде «%s»", team.Name),
+				PayloadJSON:       xjson.MustMarshal(payload),
+				ActionPayloadJSON: xjson.MustMarshal(payload),
+			})
 		}
 	}
 
@@ -145,6 +180,21 @@ func (s *TeamService) AdminCreateTeam(ctx context.Context, tournamentID string, 
 		return nil, apperror.Forbidden("insufficient tournament permissions")
 	}
 
+	tournament, err := s.tournaments.GetTournament(ctx, tournamentID)
+	if err != nil {
+		return nil, err
+	}
+	if tournament.MaxTeams > 0 {
+		count, err := s.teams.CountByTournament(ctx, tournamentID)
+		if err != nil {
+			return nil, err
+		}
+		if count >= tournament.MaxTeams {
+			return nil, apperror.BadRequest("max_teams_reached",
+				fmt.Sprintf("достигнут лимит команд (%d)", tournament.MaxTeams), nil)
+		}
+	}
+
 	team := &entity.Team{
 		ID:           uuid.NewString(),
 		TournamentID: tournamentID,
@@ -159,13 +209,20 @@ func (s *TeamService) AdminCreateTeam(ctx context.Context, tournamentID string, 
 	}
 
 	now := time.Now()
-	for i, nickname := range in.Members {
-		if nickname == "" {
+	for i, memberEmail := range in.Members {
+		if memberEmail == "" {
 			continue
 		}
 		var userID *string
-		if u, err := s.users.GetByNickname(ctx, nickname); err == nil {
+		nickname := emailPrefix(memberEmail)
+		storedEmail := memberEmail
+		if u, err := s.users.GetByEmail(ctx, memberEmail); err == nil {
 			userID = &u.ID
+			if u.Nickname != "" {
+				nickname = u.Nickname
+			} else if u.FirstName != "" {
+				nickname = u.FirstName
+			}
 		}
 		isCaptain := i == 0
 		confirmStatus := entity.MemberConfirmationPendingConfirmation
@@ -177,6 +234,7 @@ func (s *TeamService) AdminCreateTeam(ctx context.Context, tournamentID string, 
 			TeamID:             team.ID,
 			UserID:             userID,
 			Nickname:           nickname,
+			Email:              &storedEmail,
 			MemberRole:         entity.MemberRolePlayer,
 			IsCaptain:          isCaptain,
 			ConfirmationStatus: confirmStatus,
@@ -188,9 +246,39 @@ func (s *TeamService) AdminCreateTeam(ctx context.Context, tournamentID string, 
 		if err := s.teams.CreateMember(ctx, member); err != nil {
 			return nil, err
 		}
+		if userID != nil && !isCaptain {
+			payload := map[string]string{"team_id": team.ID, "team_member_id": member.ID, "tournament_id": tournamentID}
+			_ = s.notifications.Create(ctx, &entity.Notification{
+				ID: uuid.NewString(), UserID: *userID,
+				Type:              entity.NotificationAddedToTeam,
+				Title:             "Вас добавили в команду",
+				Message:           fmt.Sprintf("Подтвердите участие в команде «%s»", in.TeamName),
+				PayloadJSON:       xjson.MustMarshal(payload),
+				ActionPayloadJSON: xjson.MustMarshal(payload),
+			})
+		}
 	}
 
 	return s.GetTeam(ctx, team.ID)
+}
+
+func (s *TeamService) AdminDeleteTeam(ctx context.Context, actorUserID, teamID string) error {
+	team, err := s.teams.GetTeamByID(ctx, teamID)
+	if err != nil {
+		return apperror.NotFound("team not found")
+	}
+	ok, err := s.tournaments.CanManageTournament(ctx, team.TournamentID, actorUserID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return apperror.Forbidden("insufficient tournament permissions")
+	}
+	if err := s.teams.DeleteTeam(ctx, teamID); err != nil {
+		return err
+	}
+	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &team.TournamentID, EntityType: "team", EntityID: teamID, ActionType: "team_deleted", Description: "Team deleted by admin", MetadataJSON: xjson.MustMarshal(map[string]string{"team_id": teamID})})
+	return nil
 }
 
 func (s *TeamService) GetTeam(ctx context.Context, teamID string) (*TeamDetails, error) {
@@ -224,6 +312,14 @@ func (s *TeamService) UpdateTeam(ctx context.Context, actorUserID, teamID, name 
 	return s.GetTeam(ctx, teamID)
 }
 
+func (s *TeamService) GetMyTeam(ctx context.Context, userID, tournamentID string) (*TeamDetails, error) {
+	memberships, err := s.teams.FindCaptainMembership(ctx, userID, tournamentID)
+	if err != nil || len(memberships) == 0 {
+		return nil, apperror.NotFound("no team found for this user in this tournament")
+	}
+	return s.GetTeam(ctx, memberships[0].TeamID)
+}
+
 func (s *TeamService) ApproveTeam(ctx context.Context, actorUserID, teamID string) error {
 	details, err := s.GetTeam(ctx, teamID)
 	if err != nil {
@@ -241,6 +337,18 @@ func (s *TeamService) ApproveTeam(ctx context.Context, actorUserID, teamID strin
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &details.Team.TournamentID, EntityType: "team", EntityID: teamID, ActionType: "team_approved", Description: "Team approved by manager", MetadataJSON: xjson.MustMarshal(map[string]string{"team_id": teamID})})
+	payload := map[string]string{"team_id": teamID, "tournament_id": details.Team.TournamentID}
+	for _, m := range details.Members {
+		if m.UserID != nil {
+			_ = s.notifications.Create(ctx, &entity.Notification{
+				ID: uuid.NewString(), UserID: *m.UserID,
+				Type:    entity.NotificationTeamParticipationConfirm,
+				Title:   "Команда одобрена",
+				Message: fmt.Sprintf("Ваша команда «%s» подтверждена и допущена к турниру.", details.Team.Name),
+				PayloadJSON: xjson.MustMarshal(payload), ActionPayloadJSON: xjson.MustMarshal(payload),
+			})
+		}
+	}
 	return nil
 }
 
@@ -261,6 +369,18 @@ func (s *TeamService) RejectTeam(ctx context.Context, actorUserID, teamID string
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &details.Team.TournamentID, EntityType: "team", EntityID: teamID, ActionType: "team_rejected", Description: "Team rejected by manager", MetadataJSON: xjson.MustMarshal(map[string]string{"reason": reason})})
+	payload := map[string]string{"team_id": teamID, "tournament_id": details.Team.TournamentID}
+	for _, m := range details.Members {
+		if m.UserID != nil {
+			_ = s.notifications.Create(ctx, &entity.Notification{
+				ID: uuid.NewString(), UserID: *m.UserID,
+				Type:    entity.NotificationTeamParticipationDecline,
+				Title:   "Команда отклонена",
+				Message: fmt.Sprintf("Ваша команда «%s» была отклонена. Причина: %s", details.Team.Name, reason),
+				PayloadJSON: xjson.MustMarshal(payload), ActionPayloadJSON: xjson.MustMarshal(payload),
+			})
+		}
+	}
 	return nil
 }
 
@@ -284,19 +404,30 @@ func (s *TeamService) ReplaceMember(ctx context.Context, actorUserID, teamID, me
 	if err != nil {
 		return err
 	}
-	ok, err := s.tournaments.CanManageTournament(ctx, details.Team.TournamentID, actorUserID)
-	if err != nil {
-		return err
+	isAdmin, _ := s.tournaments.CanManageTournament(ctx, details.Team.TournamentID, actorUserID)
+	isCaptain := false
+	for _, m := range details.Members {
+		if m.IsCaptain && m.UserID != nil && *m.UserID == actorUserID {
+			isCaptain = true
+			break
+		}
 	}
-	if !ok {
+	if !isAdmin && !isCaptain {
 		return apperror.Forbidden("insufficient tournament permissions")
 	}
 
 	var userID *string
-	if matchedUser, err := s.users.GetByNickname(ctx, in.Nickname); err == nil {
+	nickname := emailPrefix(in.Email)
+	if matchedUser, err := s.users.GetByEmail(ctx, in.Email); err == nil {
 		userID = &matchedUser.ID
+		if matchedUser.Nickname != "" {
+			nickname = matchedUser.Nickname
+		} else if matchedUser.FirstName != "" {
+			nickname = matchedUser.FirstName
+		}
 	}
-	if err := s.teams.ReplaceMember(ctx, memberID, userID, in.Nickname); err != nil {
+	storedEmail := in.Email
+	if err := s.teams.ReplaceMember(ctx, memberID, userID, nickname, &storedEmail); err != nil {
 		return err
 	}
 	if userID != nil {

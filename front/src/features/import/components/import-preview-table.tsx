@@ -1,4 +1,4 @@
-import type { ImportPreviewResponse } from "@/shared/types/api";
+﻿import type { ImportPreviewResponse } from "@/shared/types/api";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
@@ -22,8 +22,8 @@ export function ImportPreviewTable({
 }) {
   return (
     <div className="grid gap-4">
-      <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#0a3575] bg-[#002366] p-4">
-        <div className="text-sm text-[#90afd4]">
+      <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#2d2d2d] bg-[#2a2a2a] p-4">
+        <div className="text-sm text-[#9e9e9e]">
           Batch ID: <span className="font-medium text-white">{preview.batch.id}</span>
         </div>
         <Button onClick={() => onConfirm(preview.batch.id)} disabled={isConfirming}>

@@ -17,12 +17,14 @@ export function TeamsTable({
   withActions = false,
   onApprove,
   onReject,
+  onDelete,
 }: {
   teams: Team[];
   onOpen?: (id: string) => void;
   withActions?: boolean;
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -81,6 +83,11 @@ export function TeamsTable({
                     {withActions && onReject ? (
                       <Button variant="destructive" size="sm" onClick={() => onReject(team.id)}>
                         Отклонить
+                      </Button>
+                    ) : null}
+                    {withActions && onDelete ? (
+                      <Button variant="destructive" size="sm" onClick={() => onDelete(team.id)}>
+                        Удалить
                       </Button>
                     ) : null}
                   </div>

@@ -12,7 +12,16 @@
       "Bash(migrate -path migrations -database \"postgres://postgres:postgres@localhost:55432/esports?sslmode=disable\" up)",
       "Bash(docker exec *)",
       "Bash(migrate -path migrations -database \"postgres://postgres:postgres@localhost:55432/esports?sslmode=disable\" force 7)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/tournaments/nonexistent/my-team -H \"Authorization: Bearer test\")",
+      "Bash(grep -roh \"#[0-9a-fA-F]\\\\{3,6\\\\}\" src/)",
+      "Bash(ls /mnt/c/Users/User/Desktop/dip/front/src/)",
+      "Read(//mnt/c/Users/User/Desktop/dip/front/**)",
+      "Bash(grep -E \"\\\\.go$\")",
+      "Bash(cd /c/Users/User/Desktop/dip && grep -r \"DATABASE_URL\\\\|POSTGRES\" back/.env 2>/dev/null | head -3; cat back/.env 2>/dev/null | grep -i \"database\\\\|postgres\" | head -3)",
+      "Read(//c/c/Users/User/Desktop/dip/back/**)",
+      "Bash(psql \"postgres://postgres:postgres@localhost:5432/esports?sslmode=disable\" -c \"SELECT id, title, max_teams, max_participants, registration_mode FROM tournaments WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 10;\")",
+      "Bash(migrate -path migrations -database \"postgres://postgres:postgres@localhost:5432/esports?sslmode=disable\" up)"
     ]
   }
 }

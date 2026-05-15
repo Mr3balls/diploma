@@ -1,4 +1,4 @@
-import type { BracketGroup, Match, Team } from "@/shared/types/api";
+﻿import type { BracketGroup, Match, Team } from "@/shared/types/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { matchStatusLabel } from "@/shared/lib/enums";
@@ -10,14 +10,14 @@ import { Trophy } from "lucide-react";
 
 function GroupTable({ group, teamsById }: { group: BracketGroup; teamsById: Map<string, Team> }) {
   return (
-    <Card className="border-[#0a3575] bg-[#001a4a]">
+    <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm text-white">{group.name}</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-[#0a3575] text-[#90afd4]">
+            <tr className="border-b border-[#2d2d2d] text-[#9e9e9e]">
               <th className="px-3 py-2 text-left">Команда</th>
               <th className="px-2 py-2 text-center">И</th>
               <th className="px-2 py-2 text-center">В</th>
@@ -32,7 +32,7 @@ function GroupTable({ group, teamsById }: { group: BracketGroup; teamsById: Map<
               return (
                 <tr
                   key={m.id}
-                  className={`border-b border-[#0a3575]/50 ${idx < 2 ? "text-white" : "text-[#90afd4]"}`}
+                  className={`border-b border-[#2d2d2d]/50 ${idx < 2 ? "text-white" : "text-[#9e9e9e]"}`}
                 >
                   <td className="px-3 py-2">
                     {idx < 2 && <span className="mr-1 text-yellow-400">↑</span>}
@@ -47,7 +47,7 @@ function GroupTable({ group, teamsById }: { group: BracketGroup; teamsById: Map<
             })}
           </tbody>
         </table>
-        <p className="px-3 py-1 text-xs text-[#4a7ab5]">↑ выходят в плей-офф (топ 2)</p>
+        <p className="px-3 py-1 text-xs text-[#666666]">↑ выходят в плей-офф (топ 2)</p>
       </CardContent>
     </Card>
   );
@@ -78,11 +78,11 @@ function GroupMatchCard({
   }
 
   return (
-    <Card className="border-[#0a3575] bg-[#001a4a]">
+    <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
       <CardContent className="space-y-1 p-3">
         <div className="flex items-center justify-between">
           <Badge tone={isFinished ? "success" : "muted"}>{matchStatusLabel[match.status] ?? match.status}</Badge>
-          {match.scheduled_at && <span className="text-xs text-[#4a7ab5]">{formatDateTime(match.scheduled_at)}</span>}
+          {match.scheduled_at && <span className="text-xs text-[#666666]">{formatDateTime(match.scheduled_at)}</span>}
         </div>
         {([
           [match.team1_id, t1],
@@ -93,7 +93,7 @@ function GroupMatchCard({
             <div
               key={tid ?? name}
               className={`flex items-center justify-between rounded px-2 py-1 text-sm ${
-                won ? "bg-[#2255ff]/20 font-semibold text-white" : "text-[#90afd4]"
+                won ? "bg-[#ff5500]/20 font-semibold text-white" : "text-[#9e9e9e]"
               }`}
             >
               <span className="truncate">{name}</span>
@@ -101,7 +101,7 @@ function GroupMatchCard({
             </div>
           );
         })}
-        {match.score_text && <p className="text-center text-xs text-[#90afd4]">{match.score_text}</p>}
+        {match.score_text && <p className="text-center text-xs text-[#9e9e9e]">{match.score_text}</p>}
         {adminMode && !isFinished && !picking && match.team1_id && match.team2_id && (
           <Button size="sm" variant="secondary" className="mt-1 w-full" onClick={() => setPicking(true)}>
             Указать победителя
@@ -178,13 +178,13 @@ export function GroupStageView({
       {/* Group matches — hidden after advancing to playoff (group matches get deleted) */}
       {groupMatches.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-[#90afd4]">Матчи группового этапа</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">Матчи группового этапа</h3>
           {groups.map((g) => {
             const gMatches = matchesByGroup.get(g.id) ?? [];
             if (gMatches.length === 0) return null;
             return (
               <div key={g.id} className="space-y-2">
-                <p className="text-xs font-medium text-[#4a7ab5]">{g.name}</p>
+                <p className="text-xs font-medium text-[#666666]">{g.name}</p>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {gMatches.map((m) => (
                     <GroupMatchCard

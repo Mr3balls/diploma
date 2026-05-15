@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 export function FormField({
   label,
   error,
@@ -14,7 +14,7 @@ export function FormField({
     <label className="flex flex-col gap-2 text-sm font-medium text-white">
       <span>{label}</span>
       {children}
-      {hint ? <span className="text-xs font-normal text-[#90afd4]">{hint}</span> : null}
+      {hint ? <span className="text-xs font-normal text-[#9e9e9e]">{hint}</span> : null}
       {error ? <span className="text-xs font-normal text-red-400">{error}</span> : null}
     </label>
   );

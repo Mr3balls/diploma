@@ -6,12 +6,23 @@ import (
 	"esports-backend/internal/entity"
 )
 
+// NotificationBroadcaster is implemented by the SSE hub to push real-time events.
+type NotificationBroadcaster interface {
+	BroadcastToUser(userID string)
+}
+
 type NotificationRepository struct {
-	db Queryer
+	db          Queryer
+	broadcaster NotificationBroadcaster
 }
 
 func NewNotificationRepository(db Queryer) *NotificationRepository {
 	return &NotificationRepository{db: db}
+}
+
+func (r *NotificationRepository) WithBroadcaster(b NotificationBroadcaster) *NotificationRepository {
+	r.broadcaster = b
+	return r
 }
 
 func (r *NotificationRepository) Create(ctx context.Context, n *entity.Notification) error {
@@ -19,6 +30,9 @@ func (r *NotificationRepository) Create(ctx context.Context, n *entity.Notificat
         INSERT INTO notifications (id, user_id, type, title, message, payload_json, action_payload_json, is_read, acted_at, read_at, deleted_at)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
     `, n.ID, n.UserID, n.Type, n.Title, n.Message, n.PayloadJSON, n.ActionPayloadJSON, n.IsRead, n.ActedAt, n.ReadAt, n.DeletedAt)
+	if err == nil && r.broadcaster != nil {
+		r.broadcaster.BroadcastToUser(n.UserID)
+	}
 	return err
 }
 

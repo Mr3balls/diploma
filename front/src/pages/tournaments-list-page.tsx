@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Search, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/app/providers/auth-provider";
 import { CreateTournamentForm } from "@/features/tournaments/components/create-tournament-form";
@@ -7,37 +8,21 @@ import { useCreateTournament, useTournaments } from "@/features/tournaments/hook
 import { Button } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { ErrorState } from "@/shared/ui/error-state";
-import { Input } from "@/shared/ui/input";
-import { Select } from "@/shared/ui/select";
-import { PageHeader } from "@/shared/ui/page-header";
-import { Card, CardContent } from "@/shared/ui/card";
 import { Spinner } from "@/shared/ui/spinner";
-import { tournamentFormatLabel, tournamentStatusLabel } from "@/shared/lib/enums";
-import type { TournamentFormat, TournamentStatus } from "@/shared/types/api";
+import { Card, CardContent } from "@/shared/ui/card";
+import { tournamentStatusLabel } from "@/shared/lib/enums";
+import type { TournamentStatus } from "@/shared/types/api";
 import type { TournamentFormValues } from "@/features/tournaments/schemas";
 import { getErrorMessage } from "@/shared/lib/http";
+import { cn } from "@/shared/lib/cn";
 
-const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "Все статусы" },
-  ...(
-    [
-      "draft",
-      "registration_open",
-      "registration_closed",
-      "bracket_generated",
-      "in_progress",
-      "finished",
-      "cancelled",
-    ] as TournamentStatus[]
-  ).map((s) => ({ value: s, label: tournamentStatusLabel[s] })),
-];
-
-const FORMAT_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "Все форматы" },
-  ...(["single_elimination", "double_elimination"] as TournamentFormat[]).map((f) => ({
-    value: f,
-    label: tournamentFormatLabel[f],
-  })),
+const STATUS_PILLS: { value: TournamentStatus | ""; label: string }[] = [
+  { value: "",                   label: "Все" },
+  { value: "registration_open",  label: tournamentStatusLabel["registration_open"] },
+  { value: "in_progress",        label: tournamentStatusLabel["in_progress"] },
+  { value: "finished",           label: tournamentStatusLabel["finished"] },
+  { value: "draft",              label: tournamentStatusLabel["draft"] },
+  { value: "cancelled",          label: tournamentStatusLabel["cancelled"] },
 ];
 
 export function TournamentsListPage() {
@@ -45,8 +30,7 @@ export function TournamentsListPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const [format, setFormat] = useState("");
+  const [status, setStatus] = useState<TournamentStatus | "">("");
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query.trim()), 400);
@@ -55,11 +39,9 @@ export function TournamentsListPage() {
 
   const tournamentsQuery = useTournaments({
     status: status || undefined,
-    format: format || undefined,
     q: debouncedQuery || undefined,
   });
   const createMutation = useCreateTournament();
-
   const items = tournamentsQuery.data?.items ?? [];
 
   async function handleCreate(values: TournamentFormValues) {
@@ -73,86 +55,130 @@ export function TournamentsListPage() {
   }
 
   return (
-    <div className="grid gap-6">
-      <PageHeader
-        title="Турниры"
-        description="Список турниров платформы."
-        actions={
-          isAuthenticated ? (
-            <Button onClick={() => setShowCreate((v) => !v)}>
-              {showCreate ? "Скрыть" : "Создать турнир"}
-            </Button>
-          ) : null
-        }
-      />
+    <div className="grid gap-0">
 
-      <Card>
-        <CardContent className="pt-5">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Input
-              className="flex-1"
+      {/* ── Page header ─────────────────────────────────────────── */}
+      <div
+        style={{
+          width: "100vw",
+          marginLeft: "calc(50% - 50vw)",
+          borderBottom: "1px solid #2d2d2d",
+          background: "#111111",
+        }}
+      >
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">
+                Платформа
+              </p>
+              <h1
+                className="font-black uppercase text-white"
+                style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", letterSpacing: "-0.03em" }}
+              >
+                Турниры
+              </h1>
+            </div>
+            {isAuthenticated && (
+              <Button
+                className="gap-2"
+                onClick={() => setShowCreate((v) => !v)}
+              >
+                {showCreate ? (
+                  <><X className="h-4 w-4" /> Закрыть</>
+                ) : (
+                  <><Plus className="h-4 w-4" /> Создать турнир</>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="py-8 grid gap-6">
+
+        {/* ── Create form ───────────────────────────────────────── */}
+        {showCreate && (
+          <Card>
+            <CardContent className="pt-5">
+              <CreateTournamentForm
+                submitLabel="Создать"
+                onSubmit={handleCreate}
+                isSubmitting={createMutation.isPending}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Search + filters ──────────────────────────────────── */}
+        <div className="flex flex-col gap-3">
+          {/* search */}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#666666]" />
+            <input
+              type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск по названию"
+              placeholder="Поиск турнира..."
+              className="h-11 w-full rounded-xl border border-[#2d2d2d] bg-[#1a1a1a] pl-9 pr-4 text-sm text-white outline-none placeholder:text-[#666666] focus:border-[#ff5500] transition-colors"
             />
-            <Select
-              className="sm:w-52"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="sm:w-52"
-              value={format}
-              onChange={(e) => setFormat(e.target.value)}
-            >
-              {FORMAT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666] hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-        </CardContent>
-      </Card>
 
-      {showCreate ? (
-        <Card>
-          <CardContent className="pt-5">
-            <CreateTournamentForm
-              submitLabel="Создать"
-              onSubmit={handleCreate}
-              isSubmitting={createMutation.isPending}
-            />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {tournamentsQuery.isLoading ? <Spinner /> : null}
-      {tournamentsQuery.isError ? <ErrorState /> : null}
-      {!tournamentsQuery.isLoading && !tournamentsQuery.isError && !items.length ? (
-        <EmptyState
-          title="Турниров нет"
-          description="По заданным фильтрам турниры не найдены."
-        />
-      ) : null}
-      {items.length ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {items.map((tournament) => (
-            <TournamentCard key={tournament.id} tournament={tournament} />
-          ))}
+          {/* status pills */}
+          <div className="flex flex-wrap gap-2">
+            {STATUS_PILLS.map((pill) => (
+              <button
+                key={pill.value}
+                onClick={() => setStatus(pill.value)}
+                className={cn(
+                  "rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all",
+                  status === pill.value
+                    ? "border-[#ff5500] bg-[#ff5500] text-white"
+                    : "border-[#2d2d2d] bg-transparent text-[#9e9e9e] hover:border-[#666666] hover:text-white",
+                )}
+              >
+                {pill.label}
+              </button>
+            ))}
+          </div>
         </div>
-      ) : null}
-      {tournamentsQuery.data && tournamentsQuery.data.total > 0 ? (
-        <p className="text-center text-sm text-muted-foreground">
-          Показано {items.length} из {tournamentsQuery.data.total} турниров
-        </p>
-      ) : null}
+
+        {/* ── Results count ─────────────────────────────────────── */}
+        {!tournamentsQuery.isLoading && tournamentsQuery.data && (
+          <p className="text-xs text-[#666666]">
+            {tournamentsQuery.data.total > 0
+              ? `Найдено: ${tournamentsQuery.data.total} турниров`
+              : "Ничего не найдено"}
+          </p>
+        )}
+
+        {/* ── Content ───────────────────────────────────────────── */}
+        {tournamentsQuery.isLoading ? <Spinner /> : null}
+        {tournamentsQuery.isError ? <ErrorState /> : null}
+
+        {!tournamentsQuery.isLoading && !tournamentsQuery.isError && !items.length ? (
+          <EmptyState
+            title="Турниров нет"
+            description="По заданным фильтрам ничего не найдено."
+          />
+        ) : null}
+
+        {items.length ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {items.map((t) => (
+              <TournamentCard key={t.id} tournament={t} />
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

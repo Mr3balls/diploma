@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef } from "react";
 
 const ROW_1 = [
   "/images/23Aoxfn80QeSWSV_XPcVNL.jpg",
@@ -69,7 +69,7 @@ export function ParallaxCarousel() {
     <section
       ref={sectionRef}
       style={{
-        background: "#001538",
+        background: "#111111",
         width: "100vw",
         marginLeft: "calc(50% - 50vw)",
         overflow: "hidden",
@@ -79,7 +79,7 @@ export function ParallaxCarousel() {
       <div style={{ textAlign: "center", marginBottom: 52, padding: "0 16px" }}>
         <p
           style={{
-            color: "#90b8ff",
+            color: "#ffaa77",
             fontSize: 12,
             fontWeight: 600,
             letterSpacing: "0.35em",
@@ -106,7 +106,7 @@ export function ParallaxCarousel() {
           style={{
             width: 48,
             height: 3,
-            background: "#2255ff",
+            background: "#ff5500",
             margin: "20px auto 0",
             borderRadius: 2,
           }}
@@ -153,8 +153,8 @@ function CarouselImage({ src }: { src: string }) {
         aspectRatio: "16 / 9",
         borderRadius: 8,
         overflow: "hidden",
-        background: "#002366",
-        border: "1px solid #0a3575",
+        background: "#2a2a2a",
+        border: "1px solid #2d2d2d",
       }}
     >
       <img

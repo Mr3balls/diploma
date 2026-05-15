@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"esports-backend/internal/apperror"
@@ -9,6 +10,7 @@ import (
 	"esports-backend/internal/entity"
 	"esports-backend/internal/pkg/password"
 	tok "esports-backend/internal/pkg/tokens"
+	"esports-backend/internal/pkg/xjson"
 	"esports-backend/internal/repository"
 
 	"github.com/google/uuid"
@@ -16,15 +18,17 @@ import (
 )
 
 type AuthService struct {
-	cfg      *config.Config
-	users    repository.UserStore
-	sessions repository.SessionStore
-	audit    repository.AuditStore
-	email    *EmailService
+	cfg           *config.Config
+	users         repository.UserStore
+	sessions      repository.SessionStore
+	audit         repository.AuditStore
+	email         *EmailService
+	teams         *repository.TeamRepository
+	notifications *repository.NotificationRepository
 }
 
-func NewAuthService(cfg *config.Config, users repository.UserStore, sessions repository.SessionStore, audit repository.AuditStore, email *EmailService) *AuthService {
-	return &AuthService{cfg: cfg, users: users, sessions: sessions, audit: audit, email: email}
+func NewAuthService(cfg *config.Config, users repository.UserStore, sessions repository.SessionStore, audit repository.AuditStore, email *EmailService, teams *repository.TeamRepository, notifications *repository.NotificationRepository) *AuthService {
+	return &AuthService{cfg: cfg, users: users, sessions: sessions, audit: audit, email: email, teams: teams, notifications: notifications}
 }
 
 type RegisterInput struct {
@@ -76,6 +80,25 @@ func (s *AuthService) Register(ctx context.Context, in RegisterInput, userAgent,
 	}
 	if err := s.users.AssignPlatformRole(ctx, user.ID, entity.PlatformRolePlayer); err != nil {
 		return nil, nil, err
+	}
+
+	// Link any pending team memberships created before this user registered
+	if s.teams != nil && s.notifications != nil {
+		if pending, err := s.teams.FindPendingByEmail(ctx, user.Email); err == nil {
+			for _, m := range pending {
+				_ = s.teams.SetMemberUserID(ctx, m.ID, user.ID)
+				payload := map[string]string{"team_id": m.TeamID, "team_member_id": m.ID}
+				_ = s.notifications.Create(ctx, &entity.Notification{
+					ID:                uuid.NewString(),
+					UserID:            user.ID,
+					Type:              entity.NotificationAddedToTeam,
+					Title:             "Вас добавили в команду",
+					Message:           fmt.Sprintf("Вас пригласили в команду. Подтвердите участие."),
+					PayloadJSON:       xjson.MustMarshal(payload),
+					ActionPayloadJSON: xjson.MustMarshal(payload),
+				})
+			}
+		}
 	}
 	roles, err := s.users.GetPlatformRoles(ctx, user.ID)
 	if err != nil {

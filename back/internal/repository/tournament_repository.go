@@ -13,17 +13,31 @@ import (
 
 // TournamentFilter holds optional filter parameters for public tournament queries.
 type TournamentFilter struct {
-	Status     string // exact match, e.g. "registration_open"
-	Format     string // exact match, e.g. "single_elimination"
-	Discipline string // case-insensitive substring match
-	Query      string // searches title and discipline via ILIKE
+	Status      string // exact match, e.g. "registration_open"
+	Format      string // exact match, e.g. "single_elimination"
+	Discipline  string // case-insensitive substring match
+	Query       string // searches title and discipline via ILIKE
+	RequesterID string // if set, also includes private tournaments where user has a role
 }
 
 // publicWhere builds the WHERE clause and args for public tournament queries.
 // Returns (whereClause, args) where whereClause starts with "WHERE ".
 func publicWhere(f TournamentFilter) (string, []interface{}) {
-	conds := []string{"deleted_at IS NULL", "visibility='public'"}
 	args := []interface{}{}
+
+	// visibility condition: always show public; also show private ones the requester manages
+	var visibilityCond string
+	if f.RequesterID != "" {
+		args = append(args, f.RequesterID)
+		visibilityCond = fmt.Sprintf(
+			"(visibility='public' OR (visibility='private' AND id IN (SELECT tournament_id FROM tournament_user_roles WHERE user_id=$%d)))",
+			len(args),
+		)
+	} else {
+		visibilityCond = "visibility='public'"
+	}
+
+	conds := []string{"deleted_at IS NULL", visibilityCond}
 
 	if f.Status != "" {
 		args = append(args, f.Status)
@@ -64,9 +78,9 @@ func (r *TournamentRepository) Create(ctx context.Context, t *entity.Tournament)
 func (r *TournamentRepository) Update(ctx context.Context, t *entity.Tournament) error {
 	_, err := r.db.Exec(ctx, `
         UPDATE tournaments
-        SET title=$2, discipline=$3, description=$4, rules=$5, location=$6, max_teams=$7, format=$8, group_count=$9, registration_deadline=$10, start_at=$11, visibility=$12, registration_mode=$13, updated_at=now()
+        SET title=$2, discipline=$3, description=$4, rules=$5, location=$6, max_teams=$7, format=$8, group_count=$9, registration_deadline=$10, start_at=$11, visibility=$12, registration_mode=$13, max_participants=$14, updated_at=now()
         WHERE id=$1 AND deleted_at IS NULL
-    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.Format, t.GroupCount, t.RegistrationDeadline, t.StartAt, t.Visibility, t.RegistrationMode)
+    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.Format, t.GroupCount, t.RegistrationDeadline, t.StartAt, t.Visibility, t.RegistrationMode, t.MaxParticipants)
 	return err
 }
 

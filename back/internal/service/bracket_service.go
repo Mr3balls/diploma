@@ -22,6 +22,7 @@ type BracketService struct {
 	brackets      *repository.BracketRepository
 	groups        *repository.GroupRepository
 	teams         *repository.TeamRepository
+	participants  *repository.ParticipantRepository
 	notifications *repository.NotificationRepository
 	audits        *repository.AuditRepository
 }
@@ -32,6 +33,7 @@ func NewBracketService(
 	brackets *repository.BracketRepository,
 	groups *repository.GroupRepository,
 	teams *repository.TeamRepository,
+	participants *repository.ParticipantRepository,
 	notifications *repository.NotificationRepository,
 	audits *repository.AuditRepository,
 ) *BracketService {
@@ -41,6 +43,7 @@ func NewBracketService(
 		brackets:      brackets,
 		groups:        groups,
 		teams:         teams,
+		participants:  participants,
 		notifications: notifications,
 		audits:        audits,
 	}
@@ -222,7 +225,46 @@ func (s *BracketService) Generate(
 	if err != nil {
 		return nil, nil, err
 	}
+
+	go s.notifyMatchAssigned(tournamentID, storedMatches)
+
 	return storedBracket, storedMatches, nil
+}
+
+// notifyMatchAssigned sends match_assigned notifications to members of teams
+// that have an immediate match after bracket generation.
+func (s *BracketService) notifyMatchAssigned(tournamentID string, matches []entity.Match) {
+	ctx := context.Background()
+	seen := make(map[string]bool)
+	for _, m := range matches {
+		if m.Team1ID == nil || m.Team2ID == nil {
+			continue
+		}
+		for _, teamID := range []string{*m.Team1ID, *m.Team2ID} {
+			if seen[teamID] {
+				continue
+			}
+			seen[teamID] = true
+			members, err := s.teams.ListMembersByTeamID(ctx, teamID)
+			if err != nil {
+				continue
+			}
+			payload := xjson.MustMarshal(map[string]string{"match_id": m.ID, "tournament_id": tournamentID})
+			for _, member := range members {
+				if member.UserID == nil {
+					continue
+				}
+				_ = s.notifications.Create(ctx, &entity.Notification{
+					ID:          uuid.NewString(),
+					UserID:      *member.UserID,
+					Type:        entity.NotificationMatchAssigned,
+					Title:       "Матч назначен",
+					Message:     "Сетка турнира сформирована. Ваша команда получила соперника.",
+					PayloadJSON: payload,
+				})
+			}
+		}
+	}
 }
 
 // ResetMatch clears the result of the given match and cascades the reset

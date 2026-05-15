@@ -56,10 +56,10 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*entity.User, 
 func (r *UserRepository) UpdateProfile(ctx context.Context, u *entity.User) error {
 	query := `
         UPDATE users
-        SET first_name=$2, last_name=$3, phone=$4, avatar_url=$5, updated_at=now()
+        SET first_name=$2, last_name=$3, nickname=$4, phone=$5, avatar_url=$6, updated_at=now()
         WHERE id=$1 AND deleted_at IS NULL
     `
-	_, err := r.db.Exec(ctx, query, u.ID, u.FirstName, u.LastName, u.Phone, u.AvatarURL)
+	_, err := r.db.Exec(ctx, query, u.ID, u.FirstName, u.LastName, u.Nickname, u.Phone, u.AvatarURL)
 	return err
 }
 

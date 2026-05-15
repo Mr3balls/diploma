@@ -22,8 +22,8 @@ export const teamsApi = {
     const { data } = await apiClient.post<GenericMessageResponse>(`/teams/${teamId}/approve`);
     return data;
   },
-  async rejectTeam(teamId: string) {
-    const { data } = await apiClient.post<GenericMessageResponse>(`/teams/${teamId}/reject`);
+  async rejectTeam(teamId: string, reason: string) {
+    const { data } = await apiClient.post<GenericMessageResponse>(`/teams/${teamId}/reject`, { reason });
     return data;
   },
   async removeMember(teamId: string, memberId: string) {
@@ -34,11 +34,21 @@ export const teamsApi = {
     const { data } = await apiClient.post<GenericMessageResponse>(`/teams/${teamId}/members/${memberId}/replace`, payload);
     return data;
   },
+  async adminDeleteTeam(tournamentId: string, teamId: string) {
+    const { data } = await apiClient.delete<GenericMessageResponse>(
+      `/tournaments/${tournamentId}/admin/teams/${teamId}`,
+    );
+    return data;
+  },
   async adminCreateTeam(tournamentId: string, payload: { team_name: string; members: string[] }) {
     const { data } = await apiClient.post<TeamDetailsResponse>(
       `/tournaments/${tournamentId}/admin/teams`,
       payload,
     );
+    return data;
+  },
+  async getMyTeam(tournamentId: string) {
+    const { data } = await apiClient.get<TeamDetailsResponse>(`/tournaments/${tournamentId}/my-team`);
     return data;
   },
   async acceptParticipation(id: string) {

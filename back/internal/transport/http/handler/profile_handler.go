@@ -12,9 +12,10 @@ type ProfileHandler struct{ deps Deps }
 func NewProfileHandler(deps Deps) *ProfileHandler { return &ProfileHandler{deps: deps} }
 
 type updateProfileRequest struct {
-	FirstName string  `json:"first_name" validate:"required,min=2,max=100"`
-	LastName  string  `json:"last_name" validate:"required,min=2,max=100"`
-	Phone     string  `json:"phone" validate:"required,min=5,max=30"`
+	FirstName string  `json:"first_name" validate:"omitempty,max=100"`
+	LastName  string  `json:"last_name" validate:"omitempty,max=100"`
+	Nickname  string  `json:"nickname" validate:"omitempty,min=2,max=50"`
+	Phone     string  `json:"phone" validate:"omitempty,phone_ru"`
 	AvatarURL *string `json:"avatar_url"`
 }
 
@@ -47,7 +48,7 @@ func (h *ProfileHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	user, err := h.deps.Users.UpdateMe(r.Context(), userID, service.UpdateProfileInput{FirstName: req.FirstName, LastName: req.LastName, Phone: req.Phone, AvatarURL: req.AvatarURL})
+	user, err := h.deps.Users.UpdateMe(r.Context(), userID, service.UpdateProfileInput{FirstName: req.FirstName, LastName: req.LastName, Nickname: req.Nickname, Phone: req.Phone, AvatarURL: req.AvatarURL})
 	if err != nil {
 		writeError(w, err)
 		return

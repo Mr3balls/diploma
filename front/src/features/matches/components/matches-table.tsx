@@ -1,4 +1,4 @@
-import type { Match, Team } from "@/shared/types/api";
+﻿import type { Match, Team } from "@/shared/types/api";
 import type { Participant } from "@/features/challonge/types";
 import { formatDateTime } from "@/shared/lib/date";
 import { matchStatusLabel, matchTeamConfirmationLabel } from "@/shared/lib/enums";
@@ -84,7 +84,7 @@ export function MatchesTable({
                 <div className="font-medium text-white">
                   {pickSideName(match, "1", teamsById, participantsById)} vs {pickSideName(match, "2", teamsById, participantsById)}
                 </div>
-                <div className="text-xs text-[#90afd4]">
+                <div className="text-xs text-[#9e9e9e]">
                   {match.bracket_section ? `${match.bracket_section} · ` : ""}Раунд {match.round_number ?? "—"} · Слот {match.slot_index ?? "—"}
                 </div>
               </TableCell>

@@ -41,7 +41,7 @@ export function useApproveTeam(tournamentId: string) {
 export function useRejectTeam(tournamentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (teamId: string) => teamsApi.rejectTeam(teamId),
+    mutationFn: ({ teamId, reason }: { teamId: string; reason: string }) => teamsApi.rejectTeam(teamId, reason),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentAdminTeams(tournamentId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentTeams(tournamentId) });
@@ -59,6 +59,17 @@ export function useRemoveMember(tournamentId: string) {
   });
 }
 
+export function useAdminDeleteTeam(tournamentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (teamId: string) => teamsApi.adminDeleteTeam(tournamentId, teamId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentAdminTeams(tournamentId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentTeams(tournamentId) });
+    },
+  });
+}
+
 export function useAdminCreateTeam(tournamentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -67,6 +78,27 @@ export function useAdminCreateTeam(tournamentId: string) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentAdminTeams(tournamentId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentTeams(tournamentId) });
+    },
+  });
+}
+
+export function useMyTeam(tournamentId?: string, userId?: string) {
+  return useQuery({
+    queryKey: ["my-team", tournamentId ?? "empty", userId ?? "none"],
+    queryFn: () => teamsApi.getMyTeam(tournamentId!),
+    enabled: Boolean(tournamentId) && Boolean(userId),
+    retry: false,
+  });
+}
+
+export function useReplaceMember(tournamentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, memberId, email }: { teamId: string; memberId: string; email: string }) =>
+      teamsApi.replaceMember(teamId, memberId, { email }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["my-team", tournamentId] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tournamentAdminTeams(tournamentId) });
     },
   });
 }

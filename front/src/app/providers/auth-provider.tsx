@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { profileApi } from "@/features/profile/api";
 import { authApi } from "@/features/auth/api";
 import type { LoginRequest, RegisterRequest } from "@/features/auth/schemas";
@@ -27,6 +28,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
@@ -85,8 +87,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } finally {
       tokenStorage.clear();
       setUser(null);
+      queryClient.clear();
     }
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

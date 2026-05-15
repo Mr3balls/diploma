@@ -94,3 +94,13 @@ func (h *BracketHandler) ResetMatch(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
 }
+
+func (h *BracketHandler) GetPlacements(w http.ResponseWriter, r *http.Request) {
+	tournamentID := chi.URLParam(r, "id")
+	placements, err := h.deps.Brackets.ComputePlacements(r.Context(), tournamentID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"placements": placements})
+}

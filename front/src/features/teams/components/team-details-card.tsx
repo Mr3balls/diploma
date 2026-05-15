@@ -1,4 +1,4 @@
-import type { TeamDetailsResponse } from "@/shared/types/api";
+﻿import type { TeamDetailsResponse } from "@/shared/types/api";
 import { memberStatusLabel, teamStatusLabel } from "@/shared/lib/enums";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -28,7 +28,7 @@ export function TeamDetailsCard({
           <CardTitle>{data.team.name}</CardTitle>
           <Badge tone={tone(data.team.status)}>{teamStatusLabel[data.team.status]}</Badge>
         </div>
-        <p className="text-sm text-[#90afd4]">
+        <p className="text-sm text-[#9e9e9e]">
           Команда становится готовой к проверке только если капитан подтверждён и подтверждено не менее 4 основных
           игроков.
         </p>
