@@ -21,6 +21,8 @@ import { MatchesTable } from "@/features/matches/components/matches-table";
 import { ResultsView } from "@/features/matches/components/results-view";
 import { TeamsTable } from "@/features/teams/components/teams-table";
 import { TeamDetailsCard } from "@/features/teams/components/team-details-card";
+import { MapView } from "@/shared/ui/map-view";
+import { ChatPanel } from "@/features/chat/components/chat-panel";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -134,6 +136,7 @@ export function TournamentDetailsPage() {
       items.push({ value: "places", label: "Места" });
     }
     items.push({ value: "rules", label: "Правила" });
+    items.push({ value: "chat", label: "Чат" });
     return items;
   }, [isIndividual, isFinished, hasPlacements]);
 
@@ -523,18 +526,32 @@ export function TournamentDetailsPage() {
         )}
 
         {/* rules */}
+        {tab === "chat" && (
+          <ChatPanel tournamentId={id} currentUserId={user?.id} />
+        )}
+
         {tab === "rules" && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader><CardTitle>Правила</CardTitle></CardHeader>
-              <CardContent className="text-sm text-[#9e9e9e] leading-relaxed">
-                {tournament.rules || "Не заполнено"}
-              </CardContent>
-            </Card>
-            {tournament.location && (
+          <div className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <Card>
-                <CardHeader><CardTitle>Место проведения</CardTitle></CardHeader>
-                <CardContent className="text-sm text-[#9e9e9e]">{tournament.location}</CardContent>
+                <CardHeader><CardTitle>Правила</CardTitle></CardHeader>
+                <CardContent className="text-sm text-[#9e9e9e] leading-relaxed">
+                  {tournament.rules || "Не заполнено"}
+                </CardContent>
+              </Card>
+              {tournament.location && (
+                <Card>
+                  <CardHeader><CardTitle>Место проведения</CardTitle></CardHeader>
+                  <CardContent className="text-sm text-[#9e9e9e]">{tournament.location}</CardContent>
+                </Card>
+              )}
+            </div>
+            {tournament.latitude != null && tournament.longitude != null && (
+              <Card>
+                <CardHeader><CardTitle>Карта</CardTitle></CardHeader>
+                <CardContent>
+                  <MapView lat={tournament.latitude} lng={tournament.longitude} height={360} />
+                </CardContent>
               </Card>
             )}
           </div>

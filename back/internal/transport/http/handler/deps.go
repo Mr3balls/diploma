@@ -20,6 +20,7 @@ type Deps struct {
 	Audits        *service.AuditService
 	Admin         *service.AdminService
 	Challonge     *service.ChallongeService
+	Chat          *service.ChatService
 	Hub           *ws.Hub
 	JWTSecret     string
 }

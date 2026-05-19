@@ -29,6 +29,8 @@ type CreateTournamentInput struct {
 	Description          *string
 	Rules                *string
 	Location             *string
+	Latitude             *float64
+	Longitude            *float64
 	MaxTeams             int
 	Format               string
 	GroupCount           *int
@@ -82,6 +84,8 @@ func (s *TournamentService) Create(ctx context.Context, ownerUserID string, in C
 		Description:          in.Description,
 		Rules:                in.Rules,
 		Location:             in.Location,
+		Latitude:             in.Latitude,
+		Longitude:            in.Longitude,
 		MaxTeams:             in.MaxTeams,
 		MaxParticipants:      in.MaxTeams,
 		Format:               in.Format,

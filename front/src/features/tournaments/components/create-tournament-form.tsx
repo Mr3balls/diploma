@@ -10,6 +10,7 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Select } from "@/shared/ui/select";
 import { Button } from "@/shared/ui/button";
+import { MapPicker } from "@/shared/ui/map-picker";
 
 export function CreateTournamentForm({
   defaultValues,
@@ -34,6 +35,8 @@ export function CreateTournamentForm({
       description: defaultValues?.description ?? "",
       rules: defaultValues?.rules ?? "",
       location: defaultValues?.location ?? "",
+      latitude: defaultValues?.latitude ?? undefined,
+      longitude: defaultValues?.longitude ?? undefined,
       max_teams: defaultValues?.max_teams ?? 8,
       format: (defaultValues?.format as TournamentFormValues["format"]) ?? "single_elimination",
       group_count: defaultValues?.group_count ?? undefined,
@@ -122,6 +125,24 @@ export function CreateTournamentForm({
 
           <FormField label="Макс. команд / участников" error={errors.max_teams?.message}>
             <Input type="number" min={2} max={128} {...register("max_teams", { valueAsNumber: true })} />
+          </FormField>
+
+          <FormField label="Место проведения (адрес)" error={errors.location?.message}>
+            <Input {...register("location")} placeholder="Например: Алматы, ул. Абая 1" />
+          </FormField>
+
+          <FormField label="Место проведения на карте">
+            <MapPicker
+              value={
+                form.getValues("latitude") != null && form.getValues("longitude") != null
+                  ? { lat: form.getValues("latitude")!, lng: form.getValues("longitude")! }
+                  : null
+              }
+              onChange={(coords) => {
+                setValue("latitude", coords?.lat ?? undefined);
+                setValue("longitude", coords?.lng ?? undefined);
+              }}
+            />
           </FormField>
 
           <FormField label="Описание" error={errors.description?.message}>

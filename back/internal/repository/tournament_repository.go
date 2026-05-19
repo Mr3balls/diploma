@@ -69,18 +69,18 @@ func NewTournamentRepository(db Queryer) *TournamentRepository {
 
 func (r *TournamentRepository) Create(ctx context.Context, t *entity.Tournament) error {
 	_, err := r.db.Exec(ctx, `
-        INSERT INTO tournaments (id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
-    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.Format, t.GroupCount, t.RegistrationDeadline, t.StartAt, t.Status, t.Visibility, t.Slug, t.MaxParticipants, t.OwnerUserID, t.RegistrationMode)
+        INSERT INTO tournaments (id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, latitude, longitude)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.Format, t.GroupCount, t.RegistrationDeadline, t.StartAt, t.Status, t.Visibility, t.Slug, t.MaxParticipants, t.OwnerUserID, t.RegistrationMode, t.Latitude, t.Longitude)
 	return err
 }
 
 func (r *TournamentRepository) Update(ctx context.Context, t *entity.Tournament) error {
 	_, err := r.db.Exec(ctx, `
         UPDATE tournaments
-        SET title=$2, discipline=$3, description=$4, rules=$5, location=$6, max_teams=$7, format=$8, group_count=$9, registration_deadline=$10, start_at=$11, visibility=$12, registration_mode=$13, max_participants=$14, updated_at=now()
+        SET title=$2, discipline=$3, description=$4, rules=$5, location=$6, max_teams=$7, format=$8, group_count=$9, registration_deadline=$10, start_at=$11, visibility=$12, registration_mode=$13, max_participants=$14, latitude=$15, longitude=$16, updated_at=now()
         WHERE id=$1 AND deleted_at IS NULL
-    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.Format, t.GroupCount, t.RegistrationDeadline, t.StartAt, t.Visibility, t.RegistrationMode, t.MaxParticipants)
+    `, t.ID, t.Title, t.Discipline, t.Description, t.Rules, t.Location, t.MaxTeams, t.Format, t.GroupCount, t.RegistrationDeadline, t.StartAt, t.Visibility, t.RegistrationMode, t.MaxParticipants, t.Latitude, t.Longitude)
 	return err
 }
 
@@ -108,7 +108,7 @@ func (r *TournamentRepository) SoftDelete(ctx context.Context, id string) error 
 
 func (r *TournamentRepository) GetByID(ctx context.Context, id string) (*entity.Tournament, error) {
 	row := r.db.QueryRow(ctx, `
-        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, winner_team_id, winner_participant_id, created_at, updated_at, deleted_at
+        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, winner_team_id, winner_participant_id, latitude, longitude, created_at, updated_at, deleted_at
         FROM tournaments
         WHERE id=$1 AND deleted_at IS NULL
     `, id)
@@ -117,7 +117,7 @@ func (r *TournamentRepository) GetByID(ctx context.Context, id string) (*entity.
 
 func (r *TournamentRepository) GetBySlug(ctx context.Context, slug string) (*entity.Tournament, error) {
 	row := r.db.QueryRow(ctx, `
-        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, winner_team_id, winner_participant_id, created_at, updated_at, deleted_at
+        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, winner_team_id, winner_participant_id, latitude, longitude, created_at, updated_at, deleted_at
         FROM tournaments
         WHERE slug=$1 AND deleted_at IS NULL
     `, slug)
@@ -128,7 +128,7 @@ func (r *TournamentRepository) ListPublic(ctx context.Context, limit, offset int
 	where, args := publicWhere(f)
 	args = append(args, limit, offset)
 	q := fmt.Sprintf(`
-        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, winner_team_id, winner_participant_id, created_at, updated_at, deleted_at
+        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, winner_team_id, winner_participant_id, latitude, longitude, created_at, updated_at, deleted_at
         FROM tournaments
         %s
         ORDER BY created_at DESC
@@ -152,7 +152,7 @@ func (r *TournamentRepository) CountPublic(ctx context.Context, f TournamentFilt
 
 func (r *TournamentRepository) ListAll(ctx context.Context, limit, offset int) ([]entity.Tournament, error) {
 	rows, err := r.db.Query(ctx, `
-        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, winner_team_id, winner_participant_id, created_at, updated_at, deleted_at
+        SELECT id, title, discipline, description, rules, location, max_teams, format, group_count, registration_deadline, start_at, status, visibility, slug, max_participants, owner_user_id, registration_mode, winner_team_id, winner_participant_id, latitude, longitude, created_at, updated_at, deleted_at
         FROM tournaments
         WHERE deleted_at IS NULL
         ORDER BY created_at DESC
@@ -173,7 +173,7 @@ func (r *TournamentRepository) CountAll(ctx context.Context) (int, error) {
 
 func scanTournament(row interface{ Scan(...interface{}) error }) (*entity.Tournament, error) {
 	var t entity.Tournament
-	err := row.Scan(&t.ID, &t.Title, &t.Discipline, &t.Description, &t.Rules, &t.Location, &t.MaxTeams, &t.Format, &t.GroupCount, &t.RegistrationDeadline, &t.StartAt, &t.Status, &t.Visibility, &t.Slug, &t.MaxParticipants, &t.OwnerUserID, &t.RegistrationMode, &t.WinnerTeamID, &t.WinnerParticipantID, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt)
+	err := row.Scan(&t.ID, &t.Title, &t.Discipline, &t.Description, &t.Rules, &t.Location, &t.MaxTeams, &t.Format, &t.GroupCount, &t.RegistrationDeadline, &t.StartAt, &t.Status, &t.Visibility, &t.Slug, &t.MaxParticipants, &t.OwnerUserID, &t.RegistrationMode, &t.WinnerTeamID, &t.WinnerParticipantID, &t.Latitude, &t.Longitude, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, pgx.ErrNoRows

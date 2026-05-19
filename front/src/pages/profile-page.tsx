@@ -1,11 +1,12 @@
 import { useEffect } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { UserCircle, Copy, ShieldCheck } from "lucide-react";
+import { UserCircle, Copy, ShieldCheck, Trophy, Users, Star, LayoutList } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { profileSchema, type ProfileFormValues } from "@/features/profile/schemas";
-import { useDeleteMe, useMe, useUpdateMe } from "@/features/profile/hooks";
+import { useDeleteMe, useMe, useMyStats, useUpdateMe } from "@/features/profile/hooks";
 import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
@@ -28,6 +29,7 @@ function getInitials(user: { first_name?: string | null; nickname?: string | nul
 export function ProfilePage() {
   const { logout } = useAuth();
   const meQuery = useMe();
+  const statsQuery = useMyStats();
   const updateMutation = useUpdateMe();
   const deleteMutation = useDeleteMe();
 
@@ -87,31 +89,57 @@ export function ProfilePage() {
         }}
       >
         <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center gap-6">
+          <div className="flex flex-wrap items-start gap-6 w-full">
             {/* avatar */}
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-[#ff5500] text-2xl font-black text-white">
               {getInitials(me)}
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1
-                  className="font-black uppercase text-white"
-                  style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)", letterSpacing: "-0.03em" }}
-                >
-                  {displayName}
-                </h1>
-                {isPlatformAdmin && (
-                  <span className="flex items-center gap-1 rounded-full bg-[#ff5500]/20 px-3 py-1 text-xs font-bold text-[#ff5500]">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Admin
-                  </span>
-                )}
+            <div className="flex-1 min-w-0 space-y-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1
+                    className="font-black uppercase text-white"
+                    style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)", letterSpacing: "-0.03em" }}
+                  >
+                    {displayName}
+                  </h1>
+                  {isPlatformAdmin && (
+                    <span className="flex items-center gap-1 rounded-full bg-[#ff5500]/20 px-3 py-1 text-xs font-bold text-[#ff5500]">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Admin
+                    </span>
+                  )}
+                </div>
+                {me.nickname && <p className="text-sm text-[#666666]">@{me.nickname}</p>}
+                <p className="text-sm text-[#9e9e9e]">{me.email}</p>
               </div>
-              {me.nickname && (
-                <p className="text-sm text-[#666666]">@{me.nickname}</p>
-              )}
-              <p className="text-sm text-[#9e9e9e]">{me.email}</p>
+
+              {/* Stats strip */}
+              <div className="flex flex-wrap gap-4">
+                {[
+                  { icon: Trophy, label: "Организовано", value: statsQuery.data?.tournaments_organized },
+                  { icon: LayoutList, label: "Участий", value: statsQuery.data?.tournaments_participated },
+                  { icon: Star, label: "Побед", value: statsQuery.data?.tournaments_won },
+                  { icon: Users, label: "Команд", value: statsQuery.data?.teams_count },
+                ].map(({ icon: Icon, label, value }) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-[#ff5500]" />
+                    <span className="text-xl font-black text-white">
+                      {value ?? "—"}
+                    </span>
+                    <span className="text-xs text-[#666666]">{label}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Link
+                to="/my-tournaments"
+                className="inline-flex items-center gap-1.5 text-xs text-[#666666] hover:text-[#ff5500] transition-colors"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+                Мои турниры →
+              </Link>
             </div>
           </div>
         </div>

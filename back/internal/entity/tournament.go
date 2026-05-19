@@ -20,6 +20,8 @@ type Tournament struct {
 	Slug                 *string    `json:"slug,omitempty"`
 	OwnerUserID          string     `json:"owner_user_id"`
 	RegistrationMode     string     `json:"registration_mode"` // "team" | "individual"
+	Latitude            *float64   `json:"latitude,omitempty"`
+	Longitude           *float64   `json:"longitude,omitempty"`
 	WinnerTeamID        *string    `json:"winner_team_id,omitempty"`
 	WinnerParticipantID *string    `json:"winner_participant_id,omitempty"`
 	CreatedAt            time.Time  `json:"created_at"`

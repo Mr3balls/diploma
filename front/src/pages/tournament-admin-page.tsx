@@ -748,6 +748,9 @@ export function TournamentAdminPage() {
               description: tournament.description ?? "",
               rules: tournament.rules ?? "",
               discipline: tournament.discipline ?? "",
+              location: tournament.location ?? "",
+              latitude: tournament.latitude ?? undefined,
+              longitude: tournament.longitude ?? undefined,
               max_teams: tournament.max_teams ?? 8,
               visibility: tournament.visibility,
             }}

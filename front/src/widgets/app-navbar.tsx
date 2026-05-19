@@ -1,5 +1,5 @@
 ﻿import { Link, NavLink } from "react-router-dom";
-import { Bell, Shield, Trophy, UserCircle } from "lucide-react";
+import { Bell, LayoutList, Shield, Trophy, UserCircle } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { useNotificationStream, useUnreadNotifications } from "@/features/notifications/hooks";
 import { isPlatformAdmin } from "@/shared/lib/roles";
@@ -38,6 +38,9 @@ export function AppNavbar() {
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
+              <NavLink to="/my-tournaments" className="rounded-xl border border-[#2d2d2d] p-2 text-[#9e9e9e] hover:bg-[#2a2a2a] hover:text-white" title="Мои турниры">
+                <LayoutList className="h-4 w-4" />
+              </NavLink>
               <NavLink to="/notifications" className="relative rounded-xl border border-[#2d2d2d] p-2 text-[#9e9e9e] hover:bg-[#2a2a2a] hover:text-white">
                 <Bell className="h-4 w-4" />
                 {unread?.count ? (

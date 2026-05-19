@@ -65,6 +65,34 @@ export type NotificationType =
   | "result_confirmed"
   | "tournament_finished";
 
+export type UserStats = {
+  tournaments_organized: number;
+  tournaments_participated: number;
+  tournaments_won: number;
+  teams_count: number;
+};
+
+export type MyTournamentEntry = {
+  id: string;
+  title: string;
+  status: TournamentStatus;
+  format: TournamentFormat;
+  discipline: string;
+  start_at?: string | null;
+  created_at: string;
+  user_role: "organizer" | "manager" | "participant";
+  is_winner: boolean;
+};
+
+export type TournamentMessage = {
+  id: string;
+  tournament_id: string;
+  user_id: string;
+  user_nickname: string;
+  content: string;
+  created_at: string;
+};
+
 export type GenericMessageResponse = {
   message: string;
 };
@@ -109,6 +137,8 @@ export type Tournament = {
   description?: string;
   rules?: string;
   location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   max_teams: number;
   format: TournamentFormat;
   group_count?: number | null;

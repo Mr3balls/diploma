@@ -20,6 +20,8 @@ func toCreateTournamentInput(t *entity.Tournament) service.CreateTournamentInput
 		Description:          t.Description,
 		Rules:                t.Rules,
 		Location:             t.Location,
+		Latitude:             t.Latitude,
+		Longitude:            t.Longitude,
 		MaxTeams:             t.MaxTeams,
 		Format:               t.Format,
 		GroupCount:           t.GroupCount,

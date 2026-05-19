@@ -67,6 +67,7 @@ func main() {
 	groupRepo := repository.NewGroupRepository(pg)
 	notificationRepo := repository.NewNotificationRepository(pg)
 	auditRepo := repository.NewAuditRepository(pg)
+	chatRepo := repository.NewChatRepository(pg)
 
 	// Challonge-style repositories
 	participantRepo := repository.NewParticipantRepository(pg)
@@ -95,9 +96,12 @@ func main() {
 	auditService := service.NewAuditService(tournamentService, auditRepo)
 	adminService := service.NewAdminService(userRepo, tournamentRepo)
 
-	// SSE hub (shared for tournament brackets and user notifications)
+	// SSE hub (shared for tournament brackets, user notifications, and chat)
 	hub := ws.NewHub()
 	notificationRepo.WithBroadcaster(hub)
+
+	chatService := service.NewChatService(chatRepo, tournamentRepo)
+	chatService.WithBroadcaster(hub)
 	challongeService := service.NewChallongeService(pg, tournamentRepo, bracketRepo, participantRepo, membersRepo, reportsRepo, matchLogRepo, invitesRepo, userRepo, hub)
 
 	validate := validator.New()
@@ -118,6 +122,7 @@ func main() {
 		Audits:        auditService,
 		Admin:         adminService,
 		Challonge:     challongeService,
+		Chat:          chatService,
 		Hub:           hub,
 		JWTSecret:     cfg.AccessTokenSecret,
 	}

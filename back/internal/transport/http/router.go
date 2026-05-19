@@ -40,6 +40,7 @@ func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Ha
 	notificationHandler := handler.NewNotificationHandler(deps)
 	auditHandler := handler.NewAuditHandler(deps)
 	adminHandler := handler.NewAdminHandler(deps)
+	chatHandler := handler.NewChatHandler(deps)
 
 	authLimiter := mw.NewRateLimiter(rdb, cfg.AuthRateLimitPerMinute)
 	r.Route("/auth", func(ar chi.Router) {
@@ -60,7 +61,8 @@ func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Ha
 	r.Get("/tournaments/{id}/matches", tournamentHandler.GetPublicMatches)
 	r.Get("/tournaments/{id}/participants", tournamentHandler.GetParticipants)
 	r.Get("/teams/{id}", teamHandler.GetTeam)
-	r.Get("/notifications/stream", notificationHandler.Stream) // SSE, auth via ?token=
+	r.Get("/notifications/stream", notificationHandler.Stream)          // SSE, auth via ?token=
+	r.Get("/tournaments/{id}/chat/stream", chatHandler.Stream)          // SSE, auth via ?token=
 
 	r.Group(func(pr chi.Router) {
 		pr.Use(mw.AuthRequired(cfg.AccessTokenSecret))
@@ -68,6 +70,8 @@ func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Ha
 		pr.Get("/me", profileHandler.GetMe)
 		pr.Patch("/me", profileHandler.UpdateMe)
 		pr.Delete("/me", profileHandler.DeleteMe)
+		pr.Get("/me/stats", profileHandler.GetMyStats)
+		pr.Get("/me/tournaments", profileHandler.GetMyTournaments)
 
 		pr.Post("/tournaments", tournamentHandler.Create)
 		pr.Patch("/tournaments/{id}", tournamentHandler.Update)
@@ -129,6 +133,9 @@ func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Ha
 		pr.Post("/notifications/{id}/action", notificationHandler.Action)
 
 		pr.Get("/tournaments/{id}/audit", auditHandler.ListTournamentAudit)
+
+		pr.Get("/tournaments/{id}/chat", chatHandler.GetMessages)
+		pr.Post("/tournaments/{id}/chat", chatHandler.SendMessage)
 
 		pr.Get("/admin/users", adminHandler.ListUsers)
 		pr.Post("/admin/users/{id}/block", adminHandler.BlockUser)

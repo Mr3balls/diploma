@@ -68,3 +68,31 @@ func (h *ProfileHandler) DeleteMe(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "profile deleted"})
 }
+
+func (h *ProfileHandler) GetMyStats(w http.ResponseWriter, r *http.Request) {
+	userID := mustUserID(r)
+	if userID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	stats, err := h.deps.Users.GetMyStats(r.Context(), userID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
+func (h *ProfileHandler) GetMyTournaments(w http.ResponseWriter, r *http.Request) {
+	userID := mustUserID(r)
+	if userID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	items, err := h.deps.Users.GetMyTournaments(r.Context(), userID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"items": items})
+}

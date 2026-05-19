@@ -18,6 +18,7 @@ import { PlatformAdminPage } from "@/pages/platform-admin-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { ChallongePage } from "@/pages/challonge-page";
 import { ChallongeTournamentPage } from "@/pages/challonge-tournament-page";
+import { MyTournamentsPage } from "@/pages/my-tournaments-page";
 
 export const router = createBrowserRouter([
   {
@@ -33,6 +34,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ProfilePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/my-tournaments",
+        element: (
+          <ProtectedRoute>
+            <MyTournamentsPage />
           </ProtectedRoute>
         ),
       },

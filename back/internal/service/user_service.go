@@ -60,3 +60,11 @@ func (s *UserService) UpdateMe(ctx context.Context, userID string, in UpdateProf
 func (s *UserService) DeleteMe(ctx context.Context, userID string) error {
 	return s.users.SoftDelete(ctx, userID)
 }
+
+func (s *UserService) GetMyStats(ctx context.Context, userID string) (*entity.UserStats, error) {
+	return s.users.GetMyStats(ctx, userID)
+}
+
+func (s *UserService) GetMyTournaments(ctx context.Context, userID string) ([]entity.MyTournamentEntry, error) {
+	return s.users.GetMyTournaments(ctx, userID)
+}

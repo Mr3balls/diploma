@@ -7,6 +7,8 @@ export const tournamentFormSchema = z
     description: z.string().optional(),
     rules: z.string().optional(),
     location: z.string().optional(),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
     max_teams: z.coerce.number().min(2, "Минимум 2").max(128, "Максимум 128").optional(),
     format: z.enum(["single_elimination", "double_elimination", "group_stage", "group_de"]),
     group_count: z.coerce.number().min(2).max(4).optional(),

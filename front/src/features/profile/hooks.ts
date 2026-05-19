@@ -3,6 +3,22 @@ import { profileApi } from "@/features/profile/api";
 import type { ProfileFormValues } from "@/features/profile/schemas";
 import { queryKeys } from "@/shared/lib/query-keys";
 
+export function useMyStats(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.myStats,
+    queryFn: profileApi.getMyStats,
+    enabled,
+  });
+}
+
+export function useMyTournaments(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.myTournaments,
+    queryFn: profileApi.getMyTournaments,
+    enabled,
+  });
+}
+
 export function useMe(enabled = true) {
   return useQuery({
     queryKey: queryKeys.me,

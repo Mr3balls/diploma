@@ -37,6 +37,8 @@ function sanitizeTournamentPayload(payload: TournamentFormValues) {
     description: trimOrUndefined(payload.description),
     rules: trimOrUndefined(payload.rules),
     location: trimOrUndefined(payload.location),
+    latitude: payload.latitude ?? undefined,
+    longitude: payload.longitude ?? undefined,
     max_teams: payload.max_teams ?? 8,
     registration_deadline: toIsoOrUndefined(payload.registration_deadline),
     start_at: toIsoOrUndefined(payload.start_at),

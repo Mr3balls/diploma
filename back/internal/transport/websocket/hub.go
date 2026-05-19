@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"esports-backend/internal/entity"
 )
 
 // Event is a typed real-time update emitted by the service layer.
@@ -23,11 +25,18 @@ type client struct {
 	slug string
 }
 
+// chatClient holds a single per-tournament chat SSE subscriber.
+type chatClient struct {
+	ch           chan *entity.TournamentMessage
+	tournamentID string
+}
+
 // Hub manages SSE subscriptions per tournament slug and broadcasts events.
 type Hub struct {
-	mu          sync.RWMutex
-	clients     map[string]map[*client]struct{}     // slug → set of clients
-	userClients map[string]map[*userClient]struct{} // userID → set of clients
+	mu           sync.RWMutex
+	clients      map[string]map[*client]struct{}      // slug → set of clients
+	userClients  map[string]map[*userClient]struct{}  // userID → set of clients
+	chatClients  map[string]map[*chatClient]struct{}  // tournamentID → set of chat clients
 }
 
 // userClient holds a single per-user SSE subscriber.
@@ -41,6 +50,7 @@ func NewHub() *Hub {
 	return &Hub{
 		clients:     make(map[string]map[*client]struct{}),
 		userClients: make(map[string]map[*userClient]struct{}),
+		chatClients: make(map[string]map[*chatClient]struct{}),
 	}
 }
 
@@ -141,6 +151,79 @@ func (h *Hub) ServeUserSSE(w http.ResponseWriter, r *http.Request, userID string
 				return
 			}
 			b, err := json.Marshal(evt)
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(w, "data: %s\n\n", b)
+			flusher.Flush()
+		case <-ticker.C:
+			fmt.Fprintf(w, ": ping\n\n")
+			flusher.Flush()
+		case <-r.Context().Done():
+			return
+		}
+	}
+}
+
+// BroadcastToTournament sends a chat message event to all SSE clients watching a tournament's chat.
+func (h *Hub) BroadcastToTournament(tournamentID string, msg *entity.TournamentMessage) {
+	h.mu.RLock()
+	subs := h.chatClients[tournamentID]
+	h.mu.RUnlock()
+	for c := range subs {
+		select {
+		case c.ch <- msg:
+		default:
+		}
+	}
+}
+
+func (h *Hub) subscribeChat(tournamentID string) *chatClient {
+	c := &chatClient{ch: make(chan *entity.TournamentMessage, 32), tournamentID: tournamentID}
+	h.mu.Lock()
+	if h.chatClients[tournamentID] == nil {
+		h.chatClients[tournamentID] = make(map[*chatClient]struct{})
+	}
+	h.chatClients[tournamentID][c] = struct{}{}
+	h.mu.Unlock()
+	return c
+}
+
+func (h *Hub) unsubscribeChat(c *chatClient) {
+	h.mu.Lock()
+	delete(h.chatClients[c.tournamentID], c)
+	if len(h.chatClients[c.tournamentID]) == 0 {
+		delete(h.chatClients, c.tournamentID)
+	}
+	h.mu.Unlock()
+	close(c.ch)
+}
+
+// ServeChatSSE holds an SSE connection for tournament chat, pushing new messages as JSON.
+func (h *Hub) ServeChatSSE(w http.ResponseWriter, r *http.Request, tournamentID string) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	c := h.subscribeChat(tournamentID)
+	defer h.unsubscribeChat(c)
+
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case msg, open := <-c.ch:
+			if !open {
+				return
+			}
+			b, err := json.Marshal(msg)
 			if err != nil {
 				continue
 			}

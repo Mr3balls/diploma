@@ -138,6 +138,91 @@ func (r *UserRepository) SetBlocked(ctx context.Context, userID string, blocked 
 	return err
 }
 
+func (r *UserRepository) GetMyStats(ctx context.Context, userID string) (*entity.UserStats, error) {
+	row := r.db.QueryRow(ctx, `
+		SELECT
+		  (SELECT COUNT(*) FROM tournament_user_roles WHERE user_id=$1 AND role='owner') AS organized,
+		  (SELECT COUNT(DISTINCT t_id) FROM (
+		    SELECT tournament_id AS t_id FROM participants WHERE user_id=$1
+		    UNION
+		    SELECT tm_tbl.tournament_id AS t_id
+		    FROM team_members tm
+		    JOIN teams tm_tbl ON tm_tbl.id = tm.team_id AND tm_tbl.deleted_at IS NULL
+		    WHERE tm.user_id=$1
+		  ) sub) AS participated,
+		  (SELECT COUNT(*) FROM tournaments WHERE deleted_at IS NULL AND (
+		    winner_participant_id IN (SELECT id FROM participants WHERE user_id=$1)
+		    OR winner_team_id IN (
+		      SELECT tm_tbl.id FROM teams tm_tbl
+		      JOIN team_members tm ON tm.team_id = tm_tbl.id AND tm.user_id=$1
+		      WHERE tm_tbl.deleted_at IS NULL
+		    )
+		  )) AS won,
+		  (SELECT COUNT(DISTINCT team_id) FROM team_members WHERE user_id=$1) AS teams_count
+	`, userID)
+	var s entity.UserStats
+	if err := row.Scan(&s.TournamentsOrganized, &s.TournamentsParticipated, &s.TournamentsWon, &s.TeamsCount); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *UserRepository) GetMyTournaments(ctx context.Context, userID string) ([]entity.MyTournamentEntry, error) {
+	rows, err := r.db.Query(ctx, `
+		WITH user_tournaments AS (
+		  SELECT t.id,
+		    CASE WHEN tur.role='owner' THEN 1 WHEN tur.role='manager' THEN 2 ELSE 3 END AS role_rank
+		  FROM tournament_user_roles tur
+		  JOIN tournaments t ON t.id=tur.tournament_id AND t.deleted_at IS NULL
+		  WHERE tur.user_id=$1
+		  UNION ALL
+		  SELECT t.id, 3
+		  FROM participants p
+		  JOIN tournaments t ON t.id=p.tournament_id AND t.deleted_at IS NULL
+		  WHERE p.user_id=$1
+		  UNION ALL
+		  SELECT t.id, 3
+		  FROM team_members tm
+		  JOIN teams tm_tbl ON tm_tbl.id=tm.team_id AND tm_tbl.deleted_at IS NULL
+		  JOIN tournaments t ON t.id=tm_tbl.tournament_id AND t.deleted_at IS NULL
+		  WHERE tm.user_id=$1
+		),
+		ranked AS (
+		  SELECT id, MIN(role_rank) AS role_rank FROM user_tournaments GROUP BY id
+		)
+		SELECT
+		  t.id, t.title, t.status, t.format,
+		  COALESCE(t.discipline,'') AS discipline,
+		  t.start_at, t.created_at,
+		  CASE r.role_rank WHEN 1 THEN 'organizer' WHEN 2 THEN 'manager' ELSE 'participant' END,
+		  COALESCE(
+		    t.winner_participant_id IN (SELECT id FROM participants WHERE user_id=$1)
+		    OR t.winner_team_id IN (
+		      SELECT tm_tbl.id FROM teams tm_tbl
+		      JOIN team_members tm ON tm.team_id=tm_tbl.id AND tm.user_id=$1
+		      WHERE tm_tbl.deleted_at IS NULL
+		    ),
+		    false
+		  ) AS is_winner
+		FROM ranked r
+		JOIN tournaments t ON t.id=r.id
+		ORDER BY t.created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]entity.MyTournamentEntry, 0)
+	for rows.Next() {
+		var e entity.MyTournamentEntry
+		if err := rows.Scan(&e.ID, &e.Title, &e.Status, &e.Format, &e.Discipline, &e.StartAt, &e.CreatedAt, &e.UserRole, &e.IsWinner); err != nil {
+			return nil, err
+		}
+		result = append(result, e)
+	}
+	return result, rows.Err()
+}
+
 func scanUser(row interface {
 	Scan(dest ...interface{}) error
 }) (*entity.User, error) {

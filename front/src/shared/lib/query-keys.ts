@@ -16,4 +16,7 @@ export const queryKeys = {
   team: (id: string) => ["teams", id] as const,
   adminUsers: ["admin", "users"] as const,
   adminTournaments: ["admin", "tournaments"] as const,
+  myStats: ["me", "stats"] as const,
+  myTournaments: ["me", "tournaments"] as const,
+  tournamentChat: (id: string) => ["tournaments", id, "chat"] as const,
 };
