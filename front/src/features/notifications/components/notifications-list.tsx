@@ -40,10 +40,12 @@ export function NotificationsList({
   items,
   onMarkRead,
   renderActions,
+  markReadLabel = "Прочитано",
 }: {
   items: Notification[];
   onMarkRead: (id: string) => void;
   renderActions?: (notification: Notification) => React.ReactNode;
+  markReadLabel?: string;
 }) {
   return (
     <div className="rounded-xl border border-[#2d2d2d] bg-[#1a1a1a] divide-y divide-[#2d2d2d] overflow-hidden">
@@ -90,7 +92,7 @@ export function NotificationsList({
                   className="flex items-center gap-1 text-xs text-[#444444] hover:text-[#9e9e9e] transition-colors"
                 >
                   <Check className="h-3 w-3" />
-                  Прочитано
+                  {markReadLabel}
                 </button>
               )}
             </div>

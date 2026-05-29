@@ -1,6 +1,7 @@
 import { Trophy } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 import type { TeamPlacement } from "@/shared/types/api";
+import { useLang } from "@/app/providers/lang-provider";
 
 function placeLabel(from: number, to: number): string {
   if (from === to) return `${from}`;
@@ -14,7 +15,7 @@ function medalColor(from: number): string {
   return "text-[#666666]";
 }
 
-function PlacementCard({ p }: { p: TeamPlacement }) {
+function PlacementCard({ p, inGameLabel }: { p: TeamPlacement; inGameLabel: string }) {
   const label = placeLabel(p.place_from, p.place_to);
   const isTop3 = p.place_from <= 3;
   const color = medalColor(p.place_from);
@@ -45,7 +46,7 @@ function PlacementCard({ p }: { p: TeamPlacement }) {
       </span>
       {p.is_active && (
         <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff5500]">
-          в игре
+          {inGameLabel}
         </span>
       )}
     </div>
@@ -53,6 +54,9 @@ function PlacementCard({ p }: { p: TeamPlacement }) {
 }
 
 export function PlacementsView({ placements }: { placements: TeamPlacement[] }) {
+  const { t } = useLang();
+  const inGameLabel = t("placement.inGame");
+
   if (!placements.length) return null;
 
   // Group by place_from so shared places appear side by side
@@ -70,7 +74,6 @@ export function PlacementsView({ placements }: { placements: TeamPlacement[] }) 
     <div className="space-y-3">
       {grouped.map((group) => {
         const size = group.length;
-        // Choose grid columns based on group size
         const cols =
           size === 1 ? "grid-cols-1 max-w-xs mx-auto" :
           size === 2 ? "grid-cols-2 max-w-md mx-auto" :
@@ -80,7 +83,7 @@ export function PlacementsView({ placements }: { placements: TeamPlacement[] }) 
         return (
           <div key={group[0].place_from} className={cn("grid gap-3", cols)}>
             {group.map((p) => (
-              <PlacementCard key={p.team_id} p={p} />
+              <PlacementCard key={p.team_id} p={p} inGameLabel={inGameLabel} />
             ))}
           </div>
         );

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Trophy } from "lucide-react";
 import { toast } from "sonner";
 import type { Match, Team } from "@/shared/types/api";
@@ -8,28 +8,29 @@ import { useAdminSetResult } from "@/features/matches/hooks";
 import { getErrorMessage } from "@/shared/lib/http";
 import { Button } from "@/shared/ui/button";
 import { formatDateTime } from "@/shared/lib/date";
+import { useLang } from "@/app/providers/lang-provider";
 
 // ── Layout constants (px) ────────────────────────────────────────────────────
-// CARD_H must be >= the tallest rendered card. Admin mode adds a ~44px button
-// row; scheduled_at adds ~28px. Use 140 to cover all combinations safely.
 const CARD_H = 140;
 const V_GAP  = 20;
 const CARD_W = 220;
 const H_GAP  = 48;
 
 // ── Round label ───────────────────────────────────────────────────────────────
-function roundLabel(section: string, roundIdx: number, totalRounds: number) {
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
+
+function roundLabel(section: string, roundIdx: number, totalRounds: number, t: TFn): string {
   if (section === "GF") {
-    return roundIdx === 0 ? "Гранд-финал" : "Гранд-финал · реванш";
+    return roundIdx === 0 ? t("bracket.grandFinal") : t("bracket.grandFinalRematch");
   }
-  const prefix = section === "LB" ? "LB · " : "";
   const fromEnd = totalRounds - 1 - roundIdx;
   if (section === "WB") {
-    if (fromEnd === 0 && totalRounds > 1) return "Финал";
-    if (fromEnd === 1 && totalRounds > 2) return "Полуфинал";
-    if (fromEnd === 2 && totalRounds > 3) return "Четвертьфинал";
+    if (fromEnd === 0 && totalRounds > 1) return t("bracket.final");
+    if (fromEnd === 1 && totalRounds > 2) return t("bracket.semiFinal");
+    if (fromEnd === 2 && totalRounds > 3) return t("bracket.quarterFinal");
+    return t("bracket.round", { n: roundIdx + 1 });
   }
-  return `${prefix}Раунд ${roundIdx + 1}`;
+  return t("bracket.lbRound", { n: roundIdx + 1 });
 }
 
 // ── SVG connector paths ───────────────────────────────────────────────────────
@@ -50,12 +51,10 @@ function buildConnectorPaths(
   const nextMidY = (i: number) => i * nextSlotH + (nextSlotH - CARD_H) / 2 + CARD_H / 2;
 
   if (prevCount === nextCount) {
-    // 1:1 — LB major rounds (each LB winner faces a fresh WB dropout)
     for (let i = 0; i < nextCount; i++) {
       parts.push(`M ${x0} ${prevMidY(i)} H ${x1}`);
     }
   } else {
-    // 2:1 merge — WB rounds and LB minor rounds
     for (let ni = 0; ni < nextCount; ni++) {
       const c1i = ni * 2;
       const c2i = ni * 2 + 1;
@@ -83,8 +82,6 @@ function buildConnectorPaths(
 }
 
 // ── Match card ────────────────────────────────────────────────────────────────
-// The picking overlay uses `absolute inset-0` so it covers the card without
-// changing its height — avoiding layout shifts that cause card overlap.
 function MatchCard({
   match,
   teamsById,
@@ -99,12 +96,11 @@ function MatchCard({
   tournamentId?: string;
 }) {
   const [picking, setPicking] = useState(false);
+  const { t } = useLang();
   const adminSetResult = useAdminSetResult(tournamentId ?? "");
 
   const p1 = pickSideName(match, "1", teamsById, participantsById);
   const p2 = pickSideName(match, "2", teamsById, participantsById);
-  // Don't show winner styling on is_bye matches — they may be stale from a
-  // backend auto-advance bug; the admin should reset them.
   const w1 = !match.is_bye && isMatchWinner(match, "1");
   const w2 = !match.is_bye && isMatchWinner(match, "2");
   const done = match.status === "finished";
@@ -158,7 +154,7 @@ function MatchCard({
       {canPick && (
         <div className="border-t border-[#2d2d2d] px-2 py-1.5">
           <Button size="sm" variant="secondary" className="w-full text-xs" onClick={() => setPicking(true)}>
-            Указать победителя
+            {t("bracket.setWinner")}
           </Button>
         </div>
       )}
@@ -198,7 +194,7 @@ function MatchCard({
             </>
           )}
           <Button size="sm" variant="ghost" className="w-full text-xs" onClick={() => setPicking(false)}>
-            Отмена
+            {t("bracket.cancel")}
           </Button>
         </div>
       )}
@@ -222,6 +218,8 @@ function BracketSection({
   adminMode: boolean;
   tournamentId?: string;
 }) {
+  const { t } = useLang();
+
   const byRound = new Map<number, Match[]>();
   for (const m of matches) {
     const r = m.round_number ?? 1;
@@ -234,8 +232,6 @@ function BracketSection({
 
   if (!rounds.length) return null;
 
-  // Data-driven layout: totalH set by densest round; each round's slotH =
-  // totalH / matchCount so all rounds share the same vertical extent.
   const matchCounts = rounds.map((r) => r.length);
   const maxCount    = Math.max(...matchCounts);
   const totalH      = maxCount * (CARD_H + V_GAP);
@@ -312,7 +308,7 @@ function BracketSection({
             className="absolute text-center text-[10px] font-semibold uppercase tracking-wide text-[#666666]"
             style={{ left: colLeft(ri), width: CARD_W }}
           >
-            {roundLabel(section, ri, rounds.length)}
+            {roundLabel(section, ri, rounds.length, t)}
           </div>
         ))}
       </div>
@@ -334,9 +330,8 @@ export function BracketView({
   adminMode?: boolean;
   tournamentId?: string;
 }) {
-  // Only WB seeding byes (empty bracket slots) should be hidden.
-  // LB and GF matches are never genuine byes — always show them so the full
-  // bracket structure is visible even before opponents drop in.
+  const { t } = useLang();
+
   const visible = matches.filter(
     (m) => !m.is_bye || (m.bracket_section !== "WB" && m.bracket_section != null),
   );
@@ -347,7 +342,7 @@ export function BracketView({
   if (!visible.length) {
     return (
       <div className="rounded-xl border border-[#2d2d2d] px-6 py-8 text-sm text-[#9e9e9e]">
-        Сетка пока не создана.
+        {t("bracket.empty")}
       </div>
     );
   }

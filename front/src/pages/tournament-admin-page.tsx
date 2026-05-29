@@ -1,9 +1,10 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Navigate, Link } from "react-router-dom";
 import { ArrowLeft, Settings, Users, FileSpreadsheet, Trophy, Swords, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Plus, Shuffle, Play, Trash2 } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
+import { useLang } from "@/app/providers/lang-provider";
 import { useTournamentAdminAccess } from "@/shared/hooks/use-tournament-admin-access";
 import {
   useAddManager,
@@ -58,26 +59,21 @@ import { deriveSeedOrderFromMatches, deriveSeedOrderFromTeams } from "@/shared/l
 import { getErrorMessage } from "@/shared/lib/http";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Черновик · draft",
-  registration_open: "Регистрация открыта · registration_open",
-  registration_closed: "Регистрация закрыта · registration_closed",
-  bracket_generated: "Сетка создана · bracket_generated",
-  in_progress: "Идёт · in_progress",
-  finished: "Завершён · finished",
-  cancelled: "Отменён · cancelled",
-  ready: "Готов к старту · ready",
-  completed: "Завершён · completed",
-};
+const STATUS_OPTIONS = [
+  "draft", "registration_open", "registration_closed",
+  "bracket_generated", "in_progress", "finished", "cancelled", "ready", "completed",
+] as const;
 
 function ManagerForm({
   onAdd,
   onRemove,
   isBusy,
+  t,
 }: {
   onAdd: (values: ManagerFormValues) => void;
   onRemove: (values: ManagerFormValues) => void;
   isBusy?: boolean;
+  t: (key: string) => string;
 }) {
   const form = useForm<ManagerFormValues>({
     resolver: zodResolver(managerSchema),
@@ -87,17 +83,15 @@ function ManagerForm({
 
   return (
     <form className="grid gap-4 md:grid-cols-[1fr_auto_auto]" onSubmit={handleSubmit(onAdd)}>
-      <FormField label="UUID пользователя" error={errors.user_id?.message}>
-        <Input {...register("user_id")} placeholder="Вставьте UUID пользователя" />
+      <FormField label={t("admin.managers.uuidLabel")} error={errors.user_id?.message}>
+        <Input {...register("user_id")} placeholder={t("admin.managers.uuidPlaceholder")} />
       </FormField>
       <div className="pt-7">
-        <Button type="submit" size="sm" disabled={isBusy}>
-          Добавить
-        </Button>
+        <Button type="submit" size="sm" disabled={isBusy}>{t("admin.managers.add")}</Button>
       </div>
       <div className="pt-7">
         <Button type="button" variant="destructive" size="sm" disabled={isBusy} onClick={handleSubmit(onRemove)}>
-          Удалить
+          {t("admin.managers.remove")}
         </Button>
       </div>
     </form>
@@ -108,10 +102,12 @@ function StatusForm({
   currentStatus,
   onSubmit,
   isBusy,
+  t,
 }: {
   currentStatus: string;
   onSubmit: (status: string) => void;
   isBusy?: boolean;
+  t: (key: string) => string;
 }) {
   const form = useForm({
     resolver: zodResolver(tournamentStatusSchema),
@@ -122,27 +118,24 @@ function StatusForm({
     form.reset({ status: currentStatus as any });
   }, [currentStatus, form]);
 
-  const options = Object.entries(STATUS_LABELS);
   return (
     <form
       className="flex flex-wrap items-end gap-4"
       onSubmit={form.handleSubmit((v) => onSubmit(v.status))}
     >
-      <FormField label="Статус турнира">
+      <FormField label={t("admin.settings.statusLabel")}>
         <Select {...form.register("status")}>
-          {options.map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
+          {STATUS_OPTIONS.map((value) => (
+            <option key={value} value={value}>{t(`status.${value}`)} · {value}</option>
           ))}
         </Select>
       </FormField>
-      <Button type="submit" size="sm" disabled={isBusy}>
-        Обновить
-      </Button>
+      <Button type="submit" size="sm" disabled={isBusy}>{t("admin.settings.statusUpdate")}</Button>
     </form>
   );
 }
 
-function AdminCreateTeamForm({ tournamentId }: { tournamentId: string }) {
+function AdminCreateTeamForm({ tournamentId, t }: { tournamentId: string; t: (k: string, v?: Record<string, string | number>) => string }) {
   const [open, setOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [members, setMembers] = useState(["", "", "", "", ""]);
@@ -150,11 +143,11 @@ function AdminCreateTeamForm({ tournamentId }: { tournamentId: string }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!teamName.trim()) { toast.error("Введите название команды"); return; }
+    if (!teamName.trim()) { toast.error(t("admin.teams.noTeamName")); return; }
     try {
       const filtered = members.map((m) => m.trim()).filter(Boolean);
       await createMutation.mutateAsync({ team_name: teamName.trim(), members: filtered });
-      toast.success("Команда добавлена");
+      toast.success(t("admin.teams.created"));
       setTeamName("");
       setMembers(["", "", "", "", ""]);
       setOpen(false);
@@ -166,7 +159,7 @@ function AdminCreateTeamForm({ tournamentId }: { tournamentId: string }) {
   if (!open) {
     return (
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        + Добавить команду вручную
+        {t("admin.teams.addManual")}
       </Button>
     );
   }
@@ -174,25 +167,25 @@ function AdminCreateTeamForm({ tournamentId }: { tournamentId: string }) {
   return (
     <Card className="border-[#2d2d2d]">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Новая команда</CardTitle>
+        <CardTitle className="text-base">{t("admin.teams.newTeam")}</CardTitle>
       </CardHeader>
       <CardContent>
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-1">
-            <label className="text-sm text-[#9e9e9e]">Название команды</label>
+            <label className="text-sm text-[#9e9e9e]">{t("admin.teams.teamNameLabel")}</label>
             <Input
-              placeholder="Название команды"
+              placeholder={t("admin.teams.teamNamePlaceholder")}
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
               className="md:max-w-sm"
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-sm text-[#9e9e9e]">Игроки (первый — капитан)</label>
+            <label className="text-sm text-[#9e9e9e]">{t("admin.teams.players")}</label>
             {members.map((m, i) => (
               <div key={i} className="flex gap-2 md:max-w-sm">
                 <Input
-                  placeholder={i === 0 ? "Капитан (игрок 1)" : `Игрок ${i + 1}`}
+                  placeholder={i === 0 ? t("admin.captainSlot") : t("admin.captain", { n: i + 1 })}
                   value={m}
                   onChange={(e) => setMembers((prev) => prev.map((x, j) => j === i ? e.target.value : x))}
                 />
@@ -207,16 +200,16 @@ function AdminCreateTeamForm({ tournamentId }: { tournamentId: string }) {
             {members.length < 10 && (
               <Button type="button" variant="outline" size="sm" className="md:max-w-sm"
                 onClick={() => setMembers((prev) => [...prev, ""])}>
-                + Добавить игрока
+                + {t("td.registerForm.addPlayer").replace("+ ", "")}
               </Button>
             )}
           </div>
           <div className="flex gap-3">
             <Button type="submit" size="sm" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Сохранение..." : "Создать"}
+              {createMutation.isPending ? t("admin.teams.creating") : t("admin.teams.create")}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
-              Отмена
+              {t("td.cancel")}
             </Button>
           </div>
         </form>
@@ -225,7 +218,11 @@ function AdminCreateTeamForm({ tournamentId }: { tournamentId: string }) {
   );
 }
 
-function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId: string; hideStart?: boolean }) {
+function IndividualParticipantPanel({ tournamentId, hideStart, t }: {
+  tournamentId: string;
+  hideStart?: boolean;
+  t: (k: string, v?: Record<string, string | number>) => string;
+}) {
   const [name, setName] = useState("");
   const [bulkText, setBulkText] = useState("");
   const [showBulk, setShowBulk] = useState(false);
@@ -267,10 +264,10 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
   }
 
   async function handleStart() {
-    if (!confirm("Начать турнир и сгенерировать сетку?")) return;
+    if (!confirm(t("admin.participants.startConfirm"))) return;
     try {
       await start.mutateAsync();
-      toast.success("Сетка сгенерирована, турнир начался");
+      toast.success(t("admin.participants.generated"));
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -283,7 +280,7 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
           ref={inputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Имя участника"
+          placeholder={t("admin.participants.namePlaceholder")}
           className="flex-1"
         />
         <Button type="submit" size="sm" disabled={addOne.isPending || !name.trim()}>
@@ -292,19 +289,19 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
       </form>
 
       <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setShowBulk((v) => !v)}>
-        {showBulk ? "Скрыть" : "Добавить списком (несколько сразу)"}
+        {showBulk ? t("admin.participants.hideBulk") : t("admin.participants.addBulk")}
       </Button>
       {showBulk && (
         <div className="space-y-2">
           <textarea
             className="w-full rounded-xl border border-[#2d2d2d] bg-[#111111] px-3 py-2 text-sm text-white placeholder-[#666666] focus:outline-none"
             rows={5}
-            placeholder={"Один участник на строку:\nАлексей\nМихаил\nСергей"}
+            placeholder={t("admin.participants.bulkPlaceholder")}
             value={bulkText}
             onChange={(e) => setBulkText(e.target.value)}
           />
           <Button size="sm" className="w-full" onClick={handleBulkAdd} disabled={bulkAdd.isPending || !bulkText.trim()}>
-            {bulkAdd.isPending ? "Добавление..." : "Добавить всех"}
+            {bulkAdd.isPending ? t("admin.participants.adding") : t("admin.participants.bulkAdd")}
           </Button>
         </div>
       )}
@@ -312,7 +309,7 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
       {participants.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-[#9e9e9e]">Участники: {participants.length}</span>
+            <span className="text-sm text-[#9e9e9e]">{t("admin.participants.count", { n: participants.length })}</span>
             <Button
               variant="secondary"
               size="sm"
@@ -320,7 +317,7 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
               onClick={() => void shuffle.mutateAsync().catch((err) => toast.error(getErrorMessage(err)))}
             >
               <Shuffle className="mr-1 h-3.5 w-3.5" />
-              Перемешать
+              {t("admin.participants.shuffle")}
             </Button>
           </div>
           <ul className="divide-y divide-[#2d2d2d] rounded-xl border border-[#2d2d2d]">
@@ -347,7 +344,7 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
 
       {!hideStart && participants.length < 2 && (
         <p className="rounded-xl bg-yellow-900/20 px-3 py-2 text-xs text-yellow-400">
-          Добавьте минимум 2 участника для запуска сетки
+          {t("admin.participants.minWarning")}
         </p>
       )}
 
@@ -358,7 +355,7 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
           onClick={handleStart}
         >
           <Play className="mr-2 h-4 w-4" />
-          {start.isPending ? "Генерация..." : "Сгенерировать сетку и начать"}
+          {start.isPending ? t("admin.participants.generating") : t("admin.participants.generate")}
         </Button>
       )}
     </div>
@@ -368,6 +365,7 @@ function IndividualParticipantPanel({ tournamentId, hideStart }: { tournamentId:
 export function TournamentAdminPage() {
   const { id = "" } = useParams();
   const { user } = useAuth();
+  const { t } = useLang();
 
   const tournamentQuery = useTournament(id);
   const access = useTournamentAdminAccess(id, tournamentQuery.data);
@@ -466,7 +464,7 @@ export function TournamentAdminPage() {
     try {
       const isoDate = new Date(scheduleAt).toISOString();
       await scheduleMatchMutation.mutateAsync({ matchId: scheduleMatch.id, payload: { scheduled_at: isoDate } });
-      toast.success("Время установлено");
+      toast.success(t("admin.matches.saved"));
       setScheduleMatch(null);
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -486,7 +484,7 @@ export function TournamentAdminPage() {
         ? { winner_participant_id: resultWinnerId, score_text: resultScore || undefined }
         : { winner_team_id: resultWinnerId, score_text: resultScore || undefined };
       await adminSetResultMutation.mutateAsync({ matchId: resultMatch.id, payload });
-      toast.success("Победитель установлен");
+      toast.success(t("admin.matches.winnerSet"));
       setResultMatch(null);
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -496,7 +494,7 @@ export function TournamentAdminPage() {
   async function handleUpdateTournament(values: TournamentFormValues) {
     try {
       await updateTournamentMutation.mutateAsync(values);
-      toast.success("Настройки сохранены");
+      toast.success(t("admin.settings.saved"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -505,7 +503,7 @@ export function TournamentAdminPage() {
   async function handleStatusUpdate(status: string) {
     try {
       await changeStatusMutation.mutateAsync({ status: status as any });
-      toast.success("Статус обновлён");
+      toast.success(t("admin.settings.statusUpdated"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -514,7 +512,7 @@ export function TournamentAdminPage() {
   async function handleAddManager(values: ManagerFormValues) {
     try {
       await addManagerMutation.mutateAsync(values);
-      toast.success("Со-организатор добавлен");
+      toast.success(t("admin.managers.added"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -523,7 +521,7 @@ export function TournamentAdminPage() {
   async function handleRemoveManager(values: ManagerFormValues) {
     try {
       await removeManagerMutation.mutateAsync(values.user_id);
-      toast.success("Со-организатор удалён");
+      toast.success(t("admin.managers.removed"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -532,18 +530,18 @@ export function TournamentAdminPage() {
   async function handleApproveTeam(teamId: string) {
     try {
       await approveTeamMutation.mutateAsync(teamId);
-      toast.success("Команда одобрена");
+      toast.success(t("admin.teams.approved"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   }
 
   async function handleRejectTeam(teamId: string) {
-    const reason = window.prompt("Укажите причину отклонения:");
+    const reason = window.prompt(t("admin.teams.rejectPrompt"));
     if (!reason || reason.trim().length < 2) return;
     try {
       await rejectTeamMutation.mutateAsync({ teamId, reason: reason.trim() });
-      toast.success("Команда отклонена");
+      toast.success(t("admin.teams.rejected"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -553,7 +551,7 @@ export function TournamentAdminPage() {
     if (!selectedTeamId) return;
     try {
       await removeMemberMutation.mutateAsync({ teamId: selectedTeamId, memberId });
-      toast.success("Участник удалён");
+      toast.success(t("admin.teams.memberRemoved"));
       await selectedTeamQuery.refetch();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -561,11 +559,11 @@ export function TournamentAdminPage() {
   }
 
   async function handleDeleteTeam(teamId: string) {
-    if (!window.confirm("Удалить команду? Это действие нельзя отменить.")) return;
+    if (!window.confirm(t("admin.teams.deleteConfirm"))) return;
     try {
       await deleteTeamMutation.mutateAsync(teamId);
       if (selectedTeamId === teamId) setSelectedTeamId(null);
-      toast.success("Команда удалена");
+      toast.success(t("admin.teams.deleted"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -574,7 +572,7 @@ export function TournamentAdminPage() {
   async function handleGenerateBracket() {
     try {
       await generateBracketMutation.mutateAsync();
-      toast.success("Сетка создана");
+      toast.success(t("admin.bracket.generated"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -583,17 +581,17 @@ export function TournamentAdminPage() {
   async function handleRegenerateBracket() {
     try {
       await regenerateBracketMutation.mutateAsync();
-      toast.success("Сетка пересоздана");
+      toast.success(t("admin.bracket.regenerated"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   }
 
   async function handleAdvanceToPlayoff() {
-    if (!confirm("Перейти к плей-офф? Групповые матчи будут завершены.")) return;
+    if (!confirm(t("admin.bracket.advanceConfirm"))) return;
     try {
       await advanceToPlayoffMutation.mutateAsync();
-      toast.success("Плей-офф начался!");
+      toast.success(t("admin.bracket.advancedSuccess"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -602,7 +600,7 @@ export function TournamentAdminPage() {
   async function handleSaveReseed() {
     try {
       await reseedBracketMutation.mutateAsync({ ordered_team_ids: reseedItems.map((item) => item.id) });
-      toast.success("Порядок посева сохранён");
+      toast.success(t("admin.reseed.saved"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -611,7 +609,7 @@ export function TournamentAdminPage() {
   async function handleApproveResult(matchId: string) {
     try {
       await approveResultMutation.mutateAsync(matchId);
-      toast.success("Результат подтверждён");
+      toast.success(t("admin.matches.approveSuccess"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -620,7 +618,7 @@ export function TournamentAdminPage() {
   async function handleRejectResult(matchId: string) {
     try {
       await rejectResultMutation.mutateAsync({ matchId });
-      toast.success("Результат отклонён");
+      toast.success(t("admin.matches.rejectSuccess"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -629,7 +627,7 @@ export function TournamentAdminPage() {
   async function handleConnectSheet(values: import("@/features/import/schemas").GoogleSheetFormValues) {
     try {
       await connectSheetMutation.mutateAsync(values);
-      toast.success("Таблица привязана");
+      toast.success(t("admin.import.sheetLinked"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -638,7 +636,7 @@ export function TournamentAdminPage() {
   async function handleValidateSheet(values: import("@/features/import/schemas").GoogleSheetFormValues) {
     try {
       await validateSheetMutation.mutateAsync(values);
-      toast.success("Таблица прошла проверку");
+      toast.success(t("admin.import.sheetValid"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -656,7 +654,7 @@ export function TournamentAdminPage() {
   async function handleConfirmImport(batchId: string) {
     try {
       await confirmImportMutation.mutateAsync({ batch_id: batchId });
-      toast.success("Импорт подтверждён");
+      toast.success(t("admin.import.confirmed"));
       setImportPreview(null);
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -670,23 +668,23 @@ export function TournamentAdminPage() {
     confirmImportMutation.isPending;
 
   const winnerName = tournament.winner_team_id
-    ? (teamsQuery.data?.items.find((t) => t.id === tournament.winner_team_id)?.name ?? null)
+    ? (teamsQuery.data?.items.find((team) => team.id === tournament.winner_team_id)?.name ?? null)
     : tournament.winner_participant_id
     ? (participantsQuery.data?.items.find((p) => p.id === tournament.winner_participant_id)?.name ?? null)
     : null;
 
   const NAV = [
-    { key: "settings",     label: "Настройки",   icon: Settings },
+    { key: "settings",     label: t("admin.nav.settings"),     icon: Settings },
     ...(isIndividual
-      ? [{ key: "participants", label: "Участники", icon: Users }]
+      ? [{ key: "participants", label: t("admin.nav.participants"), icon: Users }]
       : [
-          { key: "teams",  label: "Команды",  icon: Users },
-          { key: "import", label: "Импорт",   icon: FileSpreadsheet },
+          { key: "teams",  label: t("admin.nav.teams"),  icon: Users },
+          { key: "import", label: t("admin.nav.import"), icon: FileSpreadsheet },
         ]
     ),
-    { key: "bracket", label: "Сетка",   icon: Trophy },
-    { key: "matches", label: "Матчи",   icon: Swords },
-    { key: "audit",   label: "Аудит",   icon: ClipboardList },
+    { key: "bracket", label: t("admin.nav.bracket"), icon: Trophy },
+    { key: "matches", label: t("admin.nav.matches"), icon: Swords },
+    { key: "audit",   label: t("admin.nav.audit"),   icon: ClipboardList },
   ];
 
   return (
@@ -696,11 +694,11 @@ export function TournamentAdminPage() {
       <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", background: "#111111", borderBottom: "1px solid #2d2d2d" }}>
         <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
           <Link to={`/tournaments/${id}`} className="inline-flex items-center gap-1.5 text-xs text-[#666666] hover:text-[#ff5500] transition-colors">
-            <ArrowLeft className="h-3.5 w-3.5" /> Вернуться к турниру
+            <ArrowLeft className="h-3.5 w-3.5" /> {t("admin.backToTournament")}
           </Link>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">Управление</p>
+              <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">{t("admin.manage")}</p>
               <h1 className="font-black uppercase text-white" style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)", letterSpacing: "-0.03em" }}>
                 {tournament.title}
               </h1>
@@ -709,7 +707,7 @@ export function TournamentAdminPage() {
               <div className="flex items-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5">
                 <Trophy className="h-4 w-4 text-yellow-400" />
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-yellow-500">Победитель</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-yellow-500">{t("admin.winner")}</p>
                   <p className="text-sm font-semibold text-white">{winnerName}</p>
                 </div>
               </div>
@@ -740,7 +738,7 @@ export function TournamentAdminPage() {
       {/* ── Content ─────────────────────────────────────────────── */}
       <div className="py-8 grid gap-6">
 
-      {activeSection === "settings" && <SectionCard title="Основные настройки" description="Редактирование параметров и смена статуса.">
+      {activeSection === "settings" && <SectionCard title={t("admin.settings.title")} description={t("admin.settings.desc")}>
         <div className="grid gap-6">
           <CreateTournamentForm
             defaultValues={{
@@ -754,7 +752,7 @@ export function TournamentAdminPage() {
               max_teams: tournament.max_teams ?? 8,
               visibility: tournament.visibility,
             }}
-            submitLabel="Сохранить"
+            submitLabel={t("admin.settings.save")}
             onSubmit={handleUpdateTournament}
             isSubmitting={updateTournamentMutation.isPending}
             showAdvanced
@@ -763,31 +761,27 @@ export function TournamentAdminPage() {
             currentStatus={tournament.status}
             onSubmit={handleStatusUpdate}
             isBusy={changeStatusMutation.isPending}
+            t={t}
           />
         </div>
       </SectionCard>}
 
-      {activeSection === "settings" && <SectionCard
-        title="Со-организаторы"
-        description="Добавьте пользователей, которые смогут управлять турниром наравне с вами."
-      >
+      {activeSection === "settings" && <SectionCard title={t("admin.managers.title")} description={t("admin.managers.desc")}>
         <ManagerForm
           onAdd={handleAddManager}
           onRemove={handleRemoveManager}
           isBusy={addManagerMutation.isPending || removeManagerMutation.isPending}
+          t={t}
         />
       </SectionCard>}
 
       {tournament.registration_mode === "individual" ? (
         <>
-          {activeSection === "participants" && <SectionCard
-            title="Участники"
-            description="Добавьте участников по имени, перемешайте посев и запустите сетку."
-          >
-            <IndividualParticipantPanel tournamentId={id} />
+          {activeSection === "participants" && <SectionCard title={t("admin.participants.title")} description={t("admin.participants.desc")}>
+            <IndividualParticipantPanel tournamentId={id} t={t} />
           </SectionCard>}
           {activeSection === "bracket" && (bracketQuery.data?.matches ?? []).length > 0 && (
-            <SectionCard title="Сетка" description="Турнирная сетка по участникам.">
+            <SectionCard title={t("admin.bracket.title")} description={t("admin.bracket.desc")}>
               <BracketView
                 matches={bracketQuery.data?.matches ?? []}
                 participants={participantsQuery.data?.items ?? []}
@@ -799,10 +793,7 @@ export function TournamentAdminPage() {
         </>
       ) : (
         <>
-          {activeSection === "import" && <SectionCard
-            title="Импорт из Google Sheets"
-            description="Загрузите команды из публичной таблицы Google Sheets."
-          >
+          {activeSection === "import" && <SectionCard title={t("admin.import.title")} description={t("admin.import.desc")}>
             <div className="grid gap-4">
               <GoogleSheetForm
                 onConnect={handleConnectSheet}
@@ -819,15 +810,15 @@ export function TournamentAdminPage() {
               )}
               {importsQuery.data?.items.length ? (
                 <div className="text-xs text-[#9e9e9e]">
-                  Последних импортов: {importsQuery.data.items.length}
+                  {t("admin.import.count", { n: importsQuery.data.items.length })}
                 </div>
               ) : null}
             </div>
           </SectionCard>}
 
-          {activeSection === "teams" && <SectionCard title="Команды" description="Одобрение и управление зарегистрированными командами.">
+          {activeSection === "teams" && <SectionCard title={t("admin.teams.title")} description={t("admin.teams.desc")}>
             <div className="grid gap-4">
-              <AdminCreateTeamForm tournamentId={id} />
+              <AdminCreateTeamForm tournamentId={id} t={t} />
               {teamsQuery.isLoading ? (
                 <Spinner />
               ) : teamsQuery.isError ? (
@@ -842,15 +833,15 @@ export function TournamentAdminPage() {
                   onDelete={handleDeleteTeam}
                 />
               ) : (
-                <EmptyState title="Команд нет" description="Пока никто не зарегистрировался." />
+                <EmptyState title={t("admin.teams.empty")} description={t("admin.teams.emptyDesc")} />
               )}
               {selectedTeamId && selectedTeamQuery.isLoading ? <Spinner /> : null}
               {selectedTeamQuery.data && selectedTeamId ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-[#666666]">Состав команды</p>
+                    <p className="text-xs text-[#666666]">{t("admin.teams.roster")}</p>
                     <Button variant="ghost" size="sm" className="text-xs text-[#666666]" onClick={() => setSelectedTeamId(null)}>
-                      Закрыть
+                      {t("td.close")}
                     </Button>
                   </div>
                   <TeamDetailsCard
@@ -864,15 +855,15 @@ export function TournamentAdminPage() {
           </SectionCard>}
 
           {activeSection === "bracket" && <SectionCard
-            title="Сетка"
-            description="Генерация сетки по зарегистрированным командам. Перегенерация сбрасывает текущую сетку."
+            title={t("admin.bracket.title")}
+            description={t("admin.bracket.desc")}
             actions={
               <>
                 <Button onClick={handleGenerateBracket} size="sm" disabled={generateBracketMutation.isPending}>
-                  Сгенерировать
+                  {t("admin.bracket.generate")}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleRegenerateBracket} disabled={regenerateBracketMutation.isPending}>
-                  Пересоздать
+                  {t("admin.bracket.regenerate")}
                 </Button>
               </>
             }
@@ -885,111 +876,69 @@ export function TournamentAdminPage() {
               <div className="space-y-4">
                 {bracketQuery.data.bracket.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">Плей-офф</h3>
-                    <BracketView
-                      matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)}
-                      teams={teamsQuery.data?.items ?? []}
-                      adminMode
-                      tournamentId={id}
-                    />
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">{t("td.playoff")}</h3>
+                    <BracketView matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)} teams={teamsQuery.data?.items ?? []} adminMode tournamentId={id} />
                   </div>
                 )}
                 {(bracketQuery.data.groups ?? []).length > 0 ? (
-                  <GroupStageView
-                    groups={bracketQuery.data.groups ?? []}
-                    matches={bracketQuery.data.matches ?? []}
-                    teams={teamsQuery.data?.items ?? []}
-                    adminMode
-                    tournamentId={id}
-                  />
+                  <GroupStageView groups={bracketQuery.data.groups ?? []} matches={bracketQuery.data.matches ?? []} teams={teamsQuery.data?.items ?? []} adminMode tournamentId={id} />
                 ) : (
-                  <EmptyState title="Сетка не сгенерирована" description="Нажмите «Сгенерировать» для создания группового этапа." />
+                  <EmptyState title={t("admin.bracket.empty")} description={t("admin.bracket.emptyGroupDesc")} />
                 )}
                 {bracketQuery.data.bracket.status !== "playoff" && (bracketQuery.data.groups ?? []).length > 0 && (
-                  <Button
-                    className="w-full"
-                    disabled={advanceToPlayoffMutation.isPending}
-                    onClick={() => void handleAdvanceToPlayoff()}
-                  >
-                    {advanceToPlayoffMutation.isPending ? "Переход..." : "Перейти к плей-офф →"}
+                  <Button className="w-full" disabled={advanceToPlayoffMutation.isPending} onClick={() => void handleAdvanceToPlayoff()}>
+                    {advanceToPlayoffMutation.isPending ? t("admin.bracket.advancing") : t("admin.bracket.toPlayoff")}
                   </Button>
                 )}
               </div>
             ) : bracketQuery.data?.bracket?.format === "group_de" ? (
               <div className="space-y-4">
-                {/* Playoff bracket after advancement */}
                 {bracketQuery.data.bracket.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">Плей-офф</h3>
-                    <BracketView
-                      matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)}
-                      teams={teamsQuery.data?.items ?? []}
-                      adminMode
-                      tournamentId={id}
-                    />
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">{t("td.playoff")}</h3>
+                    <BracketView matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)} teams={teamsQuery.data?.items ?? []} adminMode tournamentId={id} />
                   </div>
                 )}
-                {/* Per-group DE brackets */}
                 {(bracketQuery.data.groups ?? []).length > 0 ? (
-                  <GroupDEView
-                    groups={bracketQuery.data.groups ?? []}
-                    matches={bracketQuery.data.matches ?? []}
-                    teams={teamsQuery.data?.items ?? []}
-                    adminMode
-                    tournamentId={id}
-                  />
+                  <GroupDEView groups={bracketQuery.data.groups ?? []} matches={bracketQuery.data.matches ?? []} teams={teamsQuery.data?.items ?? []} adminMode tournamentId={id} />
                 ) : (
-                  <EmptyState title="Сетка не сгенерирована" description="Нажмите «Сгенерировать» для создания группового DE этапа." />
+                  <EmptyState title={t("admin.bracket.empty")} description={t("admin.bracket.emptyDEDesc")} />
                 )}
-                {/* Advance to playoff once all groups have 3 qualified teams each */}
                 {bracketQuery.data.bracket.status !== "playoff" && (bracketQuery.data.groups ?? []).length > 0 && (
-                  <Button
-                    className="w-full"
-                    disabled={advanceToPlayoffMutation.isPending}
-                    onClick={() => void handleAdvanceToPlayoff()}
-                  >
-                    {advanceToPlayoffMutation.isPending ? "Переход..." : "Перейти к плей-офф →"}
+                  <Button className="w-full" disabled={advanceToPlayoffMutation.isPending} onClick={() => void handleAdvanceToPlayoff()}>
+                    {advanceToPlayoffMutation.isPending ? t("admin.bracket.advancing") : t("admin.bracket.toPlayoff")}
                   </Button>
                 )}
               </div>
             ) : (
-              <BracketView
-                matches={bracketQuery.data?.matches ?? []}
-                teams={teamsQuery.data?.items ?? []}
-                adminMode
-                tournamentId={id}
-              />
+              <BracketView matches={bracketQuery.data?.matches ?? []} teams={teamsQuery.data?.items ?? []} adminMode tournamentId={id} />
             )}
           </SectionCard>}
 
-          {activeSection === "bracket" && <SectionCard title="Посев" description="Перетащите команды для изменения порядка посева.">
-            <ReseedBoard
-              items={reseedItems}
-              onChange={setReseedItems}
-              onSave={handleSaveReseed}
-              disabled={!canReseed}
-              saving={reseedBracketMutation.isPending}
-            />
+          {activeSection === "bracket" && <SectionCard title={t("admin.reseed.title")} description={t("admin.reseed.desc")}>
+            <ReseedBoard items={reseedItems} onChange={setReseedItems} onSave={handleSaveReseed} disabled={!canReseed} saving={reseedBracketMutation.isPending} />
           </SectionCard>}
         </>
       )}
 
-      {activeSection === "matches" && <SectionCard title="Матчи" description="Просмотр и управление результатами матчей.">
+      {activeSection === "matches" && <SectionCard title={t("admin.matches.title")} description={t("admin.matches.desc")}>
         {scheduleMatch && (
           <Card className="mb-4 border-[#2d2d2d]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Время матча — Раунд {scheduleMatch.round_number ?? "—"} · Слот {scheduleMatch.slot_index ?? "—"}</CardTitle>
+              <CardTitle className="text-base">
+                {t("admin.matches.scheduleTitle", { round: scheduleMatch.round_number ?? "—", slot: scheduleMatch.slot_index ?? "—" })}
+              </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="grid gap-1">
-                <label className="text-sm text-[#9e9e9e]">Дата и время</label>
+                <label className="text-sm text-[#9e9e9e]">{t("admin.matches.dateTimeLabel")}</label>
                 <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} className="md:max-w-sm" />
               </div>
               <div className="flex gap-3">
                 <Button size="sm" disabled={scheduleMatchMutation.isPending || !scheduleAt} onClick={() => void handleScheduleSubmit()}>
-                  {scheduleMatchMutation.isPending ? "Сохранение..." : "Сохранить"}
+                  {scheduleMatchMutation.isPending ? t("admin.matches.saving") : t("admin.matches.save")}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setScheduleMatch(null)}>Отмена</Button>
+                <Button size="sm" variant="outline" onClick={() => setScheduleMatch(null)}>{t("admin.matches.cancel")}</Button>
               </div>
             </CardContent>
           </Card>
@@ -997,30 +946,24 @@ export function TournamentAdminPage() {
         {resultMatch && (
           <Card className="mb-4 border-[#2d2d2d]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Победитель — Раунд {resultMatch.round_number ?? "—"} · Слот {resultMatch.slot_index ?? "—"}</CardTitle>
+              <CardTitle className="text-base">
+                {t("admin.matches.resultTitle", { round: resultMatch.round_number ?? "—", slot: resultMatch.slot_index ?? "—" })}
+              </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
-                <p className="text-sm text-[#9e9e9e]">Выберите победителя:</p>
+                <p className="text-sm text-[#9e9e9e]">{t("admin.matches.chooseWinner")}</p>
                 {isIndividual ? (
                   <>
                     {resultMatch.participant1_id && (
-                      <Button
-                        size="sm"
-                        variant={resultWinnerId === resultMatch.participant1_id ? "default" : "outline"}
-                        className="justify-start"
-                        onClick={() => setResultWinnerId(resultMatch.participant1_id!)}
-                      >
+                      <Button size="sm" variant={resultWinnerId === resultMatch.participant1_id ? "default" : "outline"} className="justify-start"
+                        onClick={() => setResultWinnerId(resultMatch.participant1_id!)}>
                         {participantsById.get(resultMatch.participant1_id)?.name ?? resultMatch.participant1_id.slice(0, 8)}
                       </Button>
                     )}
                     {resultMatch.participant2_id && (
-                      <Button
-                        size="sm"
-                        variant={resultWinnerId === resultMatch.participant2_id ? "default" : "outline"}
-                        className="justify-start"
-                        onClick={() => setResultWinnerId(resultMatch.participant2_id!)}
-                      >
+                      <Button size="sm" variant={resultWinnerId === resultMatch.participant2_id ? "default" : "outline"} className="justify-start"
+                        onClick={() => setResultWinnerId(resultMatch.participant2_id!)}>
                         {participantsById.get(resultMatch.participant2_id)?.name ?? resultMatch.participant2_id.slice(0, 8)}
                       </Button>
                     )}
@@ -1028,22 +971,14 @@ export function TournamentAdminPage() {
                 ) : (
                   <>
                     {resultMatch.team1_id && (
-                      <Button
-                        size="sm"
-                        variant={resultWinnerId === resultMatch.team1_id ? "default" : "outline"}
-                        className="justify-start"
-                        onClick={() => setResultWinnerId(resultMatch.team1_id!)}
-                      >
+                      <Button size="sm" variant={resultWinnerId === resultMatch.team1_id ? "default" : "outline"} className="justify-start"
+                        onClick={() => setResultWinnerId(resultMatch.team1_id!)}>
                         {teamsById.get(resultMatch.team1_id)?.name ?? resultMatch.team1_id.slice(0, 8)}
                       </Button>
                     )}
                     {resultMatch.team2_id && (
-                      <Button
-                        size="sm"
-                        variant={resultWinnerId === resultMatch.team2_id ? "default" : "outline"}
-                        className="justify-start"
-                        onClick={() => setResultWinnerId(resultMatch.team2_id!)}
-                      >
+                      <Button size="sm" variant={resultWinnerId === resultMatch.team2_id ? "default" : "outline"} className="justify-start"
+                        onClick={() => setResultWinnerId(resultMatch.team2_id!)}>
                         {teamsById.get(resultMatch.team2_id)?.name ?? resultMatch.team2_id.slice(0, 8)}
                       </Button>
                     )}
@@ -1051,14 +986,14 @@ export function TournamentAdminPage() {
                 )}
               </div>
               <div className="grid gap-1">
-                <label className="text-sm text-[#9e9e9e]">Счёт (опционально)</label>
-                <Input placeholder="Напр. 2:1" value={resultScore} onChange={(e) => setResultScore(e.target.value)} className="md:max-w-sm" />
+                <label className="text-sm text-[#9e9e9e]">{t("admin.matches.scoreLabel")}</label>
+                <Input placeholder={t("admin.matches.scorePlaceholder")} value={resultScore} onChange={(e) => setResultScore(e.target.value)} className="md:max-w-sm" />
               </div>
               <div className="flex gap-3">
                 <Button size="sm" disabled={adminSetResultMutation.isPending || !resultWinnerId} onClick={() => void handleResultSubmit()}>
-                  {adminSetResultMutation.isPending ? "Сохранение..." : "Установить победителя"}
+                  {adminSetResultMutation.isPending ? t("admin.matches.saving") : t("admin.matches.setWinner")}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setResultMatch(null)}>Отмена</Button>
+                <Button size="sm" variant="outline" onClick={() => setResultMatch(null)}>{t("admin.matches.cancel")}</Button>
               </div>
             </CardContent>
           </Card>
@@ -1079,11 +1014,11 @@ export function TournamentAdminPage() {
             onReject={(match) => void handleRejectResult(match.id)}
           />
         ) : (
-          <EmptyState title="Матчей нет" description="После генерации сетки матчи появятся здесь." />
+          <EmptyState title={t("admin.matches.empty")} description={t("admin.matches.emptyDesc")} />
         )}
       </SectionCard>}
 
-      {activeSection === "audit" && <SectionCard title="Журнал аудита" description="История действий по турниру.">
+      {activeSection === "audit" && <SectionCard title={t("admin.audit.title")} description={t("admin.audit.desc")}>
         {auditQuery.isLoading ? (
           <Spinner />
         ) : auditQuery.isError ? (
@@ -1093,10 +1028,10 @@ export function TournamentAdminPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Время</TableHead>
-                  <TableHead>Действие</TableHead>
-                  <TableHead>Пользователь</TableHead>
-                  <TableHead>Детали</TableHead>
+                  <TableHead>{t("admin.audit.time")}</TableHead>
+                  <TableHead>{t("admin.audit.action")}</TableHead>
+                  <TableHead>{t("admin.audit.user")}</TableHead>
+                  <TableHead>{t("admin.audit.details")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1114,7 +1049,7 @@ export function TournamentAdminPage() {
             </Table>
           </div>
         ) : (
-          <EmptyState title="Журнал пуст" description="Действий пока не было." />
+          <EmptyState title={t("admin.audit.empty")} description={t("admin.audit.emptyDesc")} />
         )}
       </SectionCard>}
 

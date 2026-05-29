@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Calendar, Users, Swords } from "lucide-react";
 import type { Tournament } from "@/shared/types/api";
-import { tournamentFormatLabel, tournamentStatusLabel } from "@/shared/lib/enums";
+import { useLang } from "@/app/providers/lang-provider";
 import { formatDate } from "@/shared/lib/date";
 
 function statusAccent(status: Tournament["status"]): string {
@@ -15,18 +15,8 @@ function statusAccent(status: Tournament["status"]): string {
   }
 }
 
-function statusDot(status: Tournament["status"]) {
-  const color = statusAccent(status);
-  const label = tournamentStatusLabel[status] ?? status;
-  return (
-    <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color }}>
-      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
-      {label}
-    </span>
-  );
-}
-
 export function TournamentCard({ tournament }: { tournament: Tournament }) {
+  const { t } = useLang();
   const accent = statusAccent(tournament.status);
   const date = tournament.start_at ?? tournament.registration_deadline ?? tournament.created_at;
 
@@ -39,10 +29,13 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
         <div className="flex flex-col gap-3 p-5 flex-1">
           {/* top row */}
           <div className="flex items-center justify-between gap-2">
-            {statusDot(tournament.status)}
+            <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: accent }}>
+              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: accent }} />
+              {t(`status.${tournament.status}`)}
+            </span>
             {tournament.visibility === "private" && (
               <span className="text-[10px] uppercase tracking-wider text-[#666666] border border-[#2d2d2d] rounded px-1.5 py-0.5">
-                Приватный
+                {t("card.private")}
               </span>
             )}
           </div>
@@ -61,11 +54,11 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
               </span>
             )}
             <span className="rounded-md bg-[#2a2a2a] px-2 py-0.5 text-[11px] text-[#9e9e9e]">
-              {tournamentFormatLabel[tournament.format] ?? tournament.format}
+              {t(`format.${tournament.format}`)}
             </span>
             {tournament.registration_mode === "individual" && (
               <span className="rounded-md bg-[#2a2a2a] px-2 py-0.5 text-[11px] text-[#9e9e9e]">
-                Соло
+                {t("card.solo")}
               </span>
             )}
           </div>
@@ -76,7 +69,7 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
           {tournament.max_teams ? (
             <span className="flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5" />
-              до {tournament.max_teams} участников
+              {t("card.upTo", { n: tournament.max_teams })}
             </span>
           ) : (
             <span />

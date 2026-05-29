@@ -11,6 +11,7 @@ import { NotificationsList } from "@/features/notifications/components/notificat
 import { useAcceptParticipation, useDeclineParticipation } from "@/features/teams/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/lib/query-keys";
+import { useLang } from "@/app/providers/lang-provider";
 import { Button } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { ErrorState } from "@/shared/ui/error-state";
@@ -19,6 +20,7 @@ import type { Notification } from "@/shared/types/api";
 import { getErrorMessage } from "@/shared/lib/http";
 
 export function NotificationsPage() {
+  const { t } = useLang();
   const queryClient = useQueryClient();
   const notificationsQuery = useNotifications();
   const markReadMutation = useMarkNotificationRead();
@@ -41,7 +43,7 @@ export function NotificationsPage() {
   async function handleReadAll() {
     try {
       await readAllMutation.mutateAsync();
-      toast.success("Все уведомления прочитаны");
+      toast.success(t("notifications.allReadSuccess"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -55,13 +57,13 @@ export function NotificationsPage() {
 
   async function handleAccept(notification: Notification) {
     const memberId = getMemberId(notification);
-    if (!memberId) { toast.error("В уведомлении нет team_member_id"); return; }
+    if (!memberId) { toast.error(t("notifications.noMemberId")); return; }
     try {
       await acceptMutation.mutateAsync(memberId);
       if (!notification.is_read) await markReadMutation.mutateAsync(notification.id);
       await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
       await queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications });
-      toast.success("Участие подтверждено");
+      toast.success(t("notifications.accepted"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -69,13 +71,13 @@ export function NotificationsPage() {
 
   async function handleDecline(notification: Notification) {
     const memberId = getMemberId(notification);
-    if (!memberId) { toast.error("В уведомлении нет team_member_id"); return; }
+    if (!memberId) { toast.error(t("notifications.noMemberId")); return; }
     try {
       await declineMutation.mutateAsync(memberId);
       if (!notification.is_read) await markReadMutation.mutateAsync(notification.id);
       await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
       await queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications });
-      toast.success("Участие отклонено");
+      toast.success(t("notifications.declined"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -84,7 +86,7 @@ export function NotificationsPage() {
   async function handleGenericAction(notification: Notification) {
     try {
       await actionMutation.mutateAsync({ id: notification.id });
-      toast.success("Действие выполнено");
+      toast.success(t("notifications.done"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -98,11 +100,11 @@ export function NotificationsPage() {
         <>
           <Button size="sm" onClick={() => void handleAccept(notification)}
             disabled={acceptMutation.isPending}>
-            Принять
+            {t("notifications.accept")}
           </Button>
           <Button size="sm" variant="destructive" onClick={() => void handleDecline(notification)}
             disabled={declineMutation.isPending}>
-            Отклонить
+            {t("notifications.decline")}
           </Button>
         </>
       );
@@ -110,7 +112,7 @@ export function NotificationsPage() {
     if (notification.action_payload_json?.action_available === true) {
       return (
         <Button size="sm" variant="outline" onClick={() => void handleGenericAction(notification)}>
-          Выполнить действие
+          {t("notifications.action")}
         </Button>
       );
     }
@@ -140,10 +142,12 @@ export function NotificationsPage() {
                   className="font-black uppercase text-white"
                   style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)", letterSpacing: "-0.03em" }}
                 >
-                  Уведомления
+                  {t("notifications.title")}
                 </h1>
                 <p className="text-sm text-[#666666]">
-                  {unreadCount > 0 ? `${unreadCount} непрочитанных` : "Всё прочитано"}
+                  {unreadCount > 0
+                    ? t("notifications.unread", { n: unreadCount })
+                    : t("notifications.allRead")}
                 </p>
               </div>
             </div>
@@ -156,7 +160,7 @@ export function NotificationsPage() {
                 onClick={() => void handleReadAll()}
               >
                 <CheckCheck className="h-4 w-4" />
-                Прочитать все
+                {t("notifications.markAllRead")}
               </Button>
             )}
           </div>
@@ -168,13 +172,17 @@ export function NotificationsPage() {
         {notificationsQuery.isLoading ? <Spinner /> : null}
         {notificationsQuery.isError ? <ErrorState /> : null}
         {!notificationsQuery.isLoading && !notificationsQuery.isError && !items.length ? (
-          <EmptyState title="Уведомлений нет" description="Новые уведомления появятся здесь." />
+          <EmptyState
+            title={t("notifications.empty")}
+            description={t("notifications.emptyDesc")}
+          />
         ) : null}
         {items.length ? (
           <NotificationsList
             items={items}
             onMarkRead={(id) => void handleMarkRead(id)}
             renderActions={renderActions}
+            markReadLabel={t("notifications.markRead")}
           />
         ) : null}
         {hasMore && (
@@ -184,7 +192,9 @@ export function NotificationsPage() {
               disabled={notificationsQuery.isFetchingNextPage}
               onClick={() => void notificationsQuery.fetchNextPage()}
             >
-              {notificationsQuery.isFetchingNextPage ? "Загрузка..." : "Загрузить ещё"}
+              {notificationsQuery.isFetchingNextPage
+                ? t("notifications.loading")
+                : t("notifications.loadMore")}
             </Button>
           </div>
         )}

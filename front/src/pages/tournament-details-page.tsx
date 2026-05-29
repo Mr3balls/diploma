@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Calendar, MapPin, Shield, Swords, Users, Settings } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
+import { useLang } from "@/app/providers/lang-provider";
 import { useTournamentAdminAccess } from "@/shared/hooks/use-tournament-admin-access";
 import {
   useTournament,
@@ -32,12 +33,10 @@ import { Input } from "@/shared/ui/input";
 import { Spinner } from "@/shared/ui/spinner";
 import { Tabs } from "@/shared/ui/tabs";
 import { formatDateTime, formatDate } from "@/shared/lib/date";
-import { tournamentFormatLabel, tournamentStatusLabel } from "@/shared/lib/enums";
 import { getErrorMessage } from "@/shared/lib/http";
 import { cn } from "@/shared/lib/cn";
 import type { Tournament } from "@/shared/types/api";
 
-// ── Status helpers ────────────────────────────────────────────────────────────
 function statusColor(status: Tournament["status"]) {
   switch (status) {
     case "registration_open": return "#ff5500";
@@ -49,14 +48,6 @@ function statusColor(status: Tournament["status"]) {
   }
 }
 
-// ── Team captain helpers ──────────────────────────────────────────────────────
-const TEAM_STATUS_LABEL: Record<string, string> = {
-  pending: "На рассмотрении",
-  awaiting_confirmation: "Ожидает подтверждений",
-  ready_for_review: "Готова к проверке",
-  approved: "Одобрена",
-  rejected: "Отклонена",
-};
 const TEAM_STATUS_TONE: Record<string, "default" | "success" | "danger" | "muted" | "warning"> = {
   pending: "muted",
   awaiting_confirmation: "warning",
@@ -64,30 +55,17 @@ const TEAM_STATUS_TONE: Record<string, "default" | "success" | "danger" | "muted
   approved: "success",
   rejected: "danger",
 };
-function TeamStatusBadge({ status }: { status: string }) {
-  return <Badge tone={TEAM_STATUS_TONE[status] ?? "muted"}>{TEAM_STATUS_LABEL[status] ?? status}</Badge>;
-}
-
 const MEMBER_STATUS_TONE: Record<string, "default" | "success" | "danger" | "muted" | "warning"> = {
   confirmed: "success",
   pending_confirmation: "warning",
   declined: "danger",
   removed: "muted",
 };
-const MEMBER_STATUS_LABEL: Record<string, string> = {
-  confirmed: "Подтверждён",
-  pending_confirmation: "Ожидает",
-  declined: "Отказался",
-  removed: "Удалён",
-};
-function MemberStatusBadge({ status }: { status: string }) {
-  return <Badge tone={MEMBER_STATUS_TONE[status] ?? "muted"}>{MEMBER_STATUS_LABEL[status] ?? status}</Badge>;
-}
 
-// ── Page ─────────────────────────────────────────────────────────────────────
 export function TournamentDetailsPage() {
   const { id = "" } = useParams();
   const { user } = useAuth();
+  const { t } = useLang();
   const [tab, setTab] = useState("bracket");
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [detailsTeamId, setDetailsTeamId] = useState<string | null>(null);
@@ -124,21 +102,21 @@ export function TournamentDetailsPage() {
 
   const tabs = useMemo(() => {
     const items = [
-      { value: "bracket", label: "Сетка" },
-      { value: "teams", label: isIndividual ? "Участники" : "Команды" },
+      { value: "bracket", label: t("td.tab.bracket") },
+      { value: "teams", label: isIndividual ? t("td.tab.participants") : t("td.tab.teams") },
     ];
     if (isFinished) {
-      items.push({ value: "results", label: "Результаты" });
+      items.push({ value: "results", label: t("td.tab.results") });
     } else {
-      items.push({ value: "matches", label: "Матчи" });
+      items.push({ value: "matches", label: t("td.tab.matches") });
     }
     if (hasPlacements) {
-      items.push({ value: "places", label: "Места" });
+      items.push({ value: "places", label: t("td.tab.places") });
     }
-    items.push({ value: "rules", label: "Правила" });
-    items.push({ value: "chat", label: "Чат" });
+    items.push({ value: "rules", label: t("td.tab.rules") });
+    items.push({ value: "chat", label: t("td.tab.chat") });
     return items;
-  }, [isIndividual, isFinished, hasPlacements]);
+  }, [isIndividual, isFinished, hasPlacements, t]);
 
   if (tournamentQuery.isLoading) return <div className="flex items-center justify-center py-32"><Spinner /></div>;
   if (tournamentQuery.isError || !tournamentQuery.data) return <ErrorState />;
@@ -157,18 +135,18 @@ export function TournamentDetailsPage() {
   async function handleJoinIndividual() {
     try {
       await joinMutation.mutateAsync();
-      toast.success("Вы записаны на турнир!");
+      toast.success(t("td.joinSuccess"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   }
 
   async function handleRegisterTeam() {
-    if (!teamName.trim()) { toast.error("Введите название команды"); return; }
+    if (!teamName.trim()) { toast.error(t("td.registerForm.noTeamName")); return; }
     try {
       const filteredMembers = members.map((m) => m.trim()).filter(Boolean);
       await registerTeamMutation.mutateAsync({ team_name: teamName.trim(), members: filteredMembers });
-      toast.success("Команда зарегистрирована! Ожидайте подтверждения.");
+      toast.success(t("td.registerForm.success"));
       setShowRegisterForm(false);
       setTeamName("");
       setMembers(["", "", "", "", ""]);
@@ -181,7 +159,7 @@ export function TournamentDetailsPage() {
     if (!replaceEmail.trim()) return;
     try {
       await replaceMemberMutation.mutateAsync({ teamId, memberId, email: replaceEmail.trim() });
-      toast.success("Игрок заменён. Ему отправлено приглашение.");
+      toast.success(t("td.replaceSuccess"));
       setReplaceTargetId(null);
       setReplaceEmail("");
     } catch (error) {
@@ -207,7 +185,6 @@ export function TournamentDetailsPage() {
           overflow: "hidden",
         }}
       >
-        {/* color glow based on status */}
         <div
           aria-hidden
           style={{
@@ -225,12 +202,9 @@ export function TournamentDetailsPage() {
             {/* status + title */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <span
-                  className="h-2 w-2 rounded-full shrink-0"
-                  style={{ background: color }}
-                />
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
                 <span className="text-xs font-semibold uppercase tracking-widest" style={{ color }}>
-                  {tournamentStatusLabel[tournament.status]}
+                  {t(`status.${tournament.status}`)}
                 </span>
               </div>
               <h1
@@ -256,12 +230,12 @@ export function TournamentDetailsPage() {
               )}
               <span className="flex items-center gap-1.5 rounded-lg border border-[#2d2d2d] bg-[#1a1a1a] px-3 py-1.5 text-xs text-[#9e9e9e]">
                 <Shield className="h-3.5 w-3.5" />
-                {tournamentFormatLabel[tournament.format] ?? tournament.format}
+                {t(`format.${tournament.format}`)}
               </span>
               {tournament.max_teams && (
                 <span className="flex items-center gap-1.5 rounded-lg border border-[#2d2d2d] bg-[#1a1a1a] px-3 py-1.5 text-xs text-[#9e9e9e]">
                   <Users className="h-3.5 w-3.5" />
-                  до {tournament.max_teams} участников
+                  {t("card.upTo", { n: tournament.max_teams })}
                 </span>
               )}
               {tournament.start_at && (
@@ -282,7 +256,7 @@ export function TournamentDetailsPage() {
             <div className="flex flex-wrap gap-2">
               {canJoinIndividual && (
                 <Button disabled={joinMutation.isPending} onClick={handleJoinIndividual}>
-                  {joinMutation.isPending ? "Запись..." : "Записаться"}
+                  {joinMutation.isPending ? t("td.joining") : t("td.joinBtn")}
                 </Button>
               )}
               {canRegisterTeam && (
@@ -290,13 +264,13 @@ export function TournamentDetailsPage() {
                   variant={showRegisterForm ? "outline" : "default"}
                   onClick={() => setShowRegisterForm((v) => !v)}
                 >
-                  {showRegisterForm ? "Отмена" : "Записаться с командой"}
+                  {showRegisterForm ? t("td.cancel") : t("td.registerTeam")}
                 </Button>
               )}
               {access.canAccessAdmin && (
                 <Link to={`/tournaments/${id}/admin`}>
                   <Button variant="outline" className="gap-2">
-                    <Settings className="h-4 w-4" /> Управление
+                    <Settings className="h-4 w-4" /> {t("td.manage")}
                   </Button>
                 </Link>
               )}
@@ -311,19 +285,19 @@ export function TournamentDetailsPage() {
         {/* register team form */}
         {showRegisterForm && canRegisterTeam && (
           <Card>
-            <CardHeader><CardTitle>Регистрация команды</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t("td.registerForm.title")}</CardTitle></CardHeader>
             <CardContent className="grid gap-4">
               <div className="grid gap-1">
-                <label className="text-sm text-[#9e9e9e]">Название команды</label>
-                <Input placeholder="Введите название" value={teamName}
+                <label className="text-sm text-[#9e9e9e]">{t("td.registerForm.teamName")}</label>
+                <Input placeholder={t("td.registerForm.teamNamePlaceholder")} value={teamName}
                   onChange={(e) => setTeamName(e.target.value)} className="md:max-w-sm" />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm text-[#9e9e9e]">Игроки (email адреса)</label>
-                <p className="text-xs text-[#666666]">Вы будете капитаном. Добавьте других участников по email — они получат приглашение.</p>
+                <label className="text-sm text-[#9e9e9e]">{t("td.registerForm.players")}</label>
+                <p className="text-xs text-[#666666]">{t("td.registerForm.playersHint")}</p>
                 {members.map((member, index) => (
                   <div key={index} className="flex gap-2 md:max-w-sm">
-                    <Input placeholder={`игрок${index + 2}@email.com`} value={member}
+                    <Input placeholder={`player${index + 2}@email.com`} value={member}
                       onChange={(e) => updateMember(index, e.target.value)} />
                     {members.length > 1 && (
                       <Button type="button" variant="outline" size="sm"
@@ -335,15 +309,15 @@ export function TournamentDetailsPage() {
                 {members.length < 9 && (
                   <Button type="button" variant="outline" size="sm"
                     onClick={() => setMembers((p) => [...p, ""])} className="md:max-w-sm">
-                    + Добавить игрока
+                    {t("td.registerForm.addPlayer")}
                   </Button>
                 )}
               </div>
               <div className="flex gap-3">
                 <Button disabled={registerTeamMutation.isPending} onClick={() => void handleRegisterTeam()}>
-                  {registerTeamMutation.isPending ? "Отправка..." : "Зарегистрировать команду"}
+                  {registerTeamMutation.isPending ? t("td.registerForm.submitting") : t("td.registerForm.submit")}
                 </Button>
-                <Button variant="outline" onClick={() => setShowRegisterForm(false)}>Отмена</Button>
+                <Button variant="outline" onClick={() => setShowRegisterForm(false)}>{t("td.cancel")}</Button>
               </div>
             </CardContent>
           </Card>
@@ -354,8 +328,10 @@ export function TournamentDetailsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>Моя команда — {myTeamQuery.data.team.name}</span>
-                <TeamStatusBadge status={myTeamQuery.data.team.status} />
+                <span>{t("td.myTeam")} — {myTeamQuery.data.team.name}</span>
+                <Badge tone={TEAM_STATUS_TONE[myTeamQuery.data.team.status] ?? "muted"}>
+                  {t(`teamStatus.${myTeamQuery.data.team.status}`)}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
@@ -365,20 +341,22 @@ export function TournamentDetailsPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-white truncate">{m.nickname}</span>
                       {m.is_captain && (
-                        <span className="text-[10px] text-[#ff5500] uppercase font-bold">капитан</span>
+                        <span className="text-[10px] text-[#ff5500] uppercase font-bold">{t("td.captain")}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <MemberStatusBadge status={m.confirmation_status} />
+                      <Badge tone={MEMBER_STATUS_TONE[m.confirmation_status] ?? "muted"}>
+                        {t(`memberStatus.${m.confirmation_status}`)}
+                      </Badge>
                       {m.confirmation_status === "declined" && myTeamQuery.data.team.status !== "approved" && (
                         replaceTargetId === m.id ? (
                           <div className="flex items-center gap-1">
-                            <Input className="h-7 w-40 text-xs" placeholder="email нового игрока"
+                            <Input className="h-7 w-40 text-xs" placeholder={t("td.replaceEmailPlaceholder")}
                               value={replaceEmail} onChange={(e) => setReplaceEmail(e.target.value)} />
                             <Button size="sm" className="h-7 text-xs"
                               disabled={replaceMemberMutation.isPending}
                               onClick={() => void handleReplaceMember(myTeamQuery.data!.team.id, m.id)}>
-                              ОК
+                              OK
                             </Button>
                             <Button size="sm" variant="ghost" className="h-7 text-xs"
                               onClick={() => { setReplaceTargetId(null); setReplaceEmail(""); }}>×</Button>
@@ -386,7 +364,7 @@ export function TournamentDetailsPage() {
                         ) : (
                           <Button size="sm" variant="outline" className="h-7 text-xs"
                             onClick={() => { setReplaceTargetId(m.id); setReplaceEmail(""); }}>
-                            Заменить
+                            {t("td.replace")}
                           </Button>
                         )
                       )}
@@ -394,9 +372,7 @@ export function TournamentDetailsPage() {
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-[#666666]">
-                Для перехода в статус «Готова к проверке» нужно подтверждение минимум 4 игроков, включая капитана.
-              </p>
+              <p className="text-xs text-[#666666]">{t("td.teamHint")}</p>
             </CardContent>
           </Card>
         )}
@@ -411,7 +387,7 @@ export function TournamentDetailsPage() {
             (bracketQuery.data?.matches ?? []).length > 0 ? (
               <BracketView matches={bracketQuery.data?.matches ?? []} participants={participantsQuery.data?.items ?? []} />
             ) : (
-              <EmptyState title="Сетка не сгенерирована" description="Администратор ещё не запустил сетку." />
+              <EmptyState title={t("td.bracket.empty")} description={t("td.bracket.emptyDesc")} />
             )
           ) : bracketQuery.isLoading ? <Spinner /> :
             bracketQuery.isError ? <ErrorState /> :
@@ -419,34 +395,34 @@ export function TournamentDetailsPage() {
               <div className="space-y-6">
                 {bracketQuery.data.bracket?.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">Плей-офф</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">{t("td.playoff")}</h3>
                     <BracketView matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)} teams={teamsQuery.data?.items ?? []} />
                   </div>
                 )}
                 {(bracketQuery.data.groups ?? []).length > 0 ? (
                   <GroupStageView groups={bracketQuery.data.groups ?? []} matches={bracketQuery.data.matches ?? []} teams={teamsQuery.data?.items ?? []} />
                 ) : (
-                  <EmptyState title="Сетка не сгенерирована" description="Администратор ещё не запустил сетку." />
+                  <EmptyState title={t("td.bracket.empty")} description={t("td.bracket.emptyDesc")} />
                 )}
               </div>
             ) : bracketQuery.data?.bracket?.format === "group_de" ? (
               <div className="space-y-6">
                 {bracketQuery.data.bracket?.status === "playoff" && (bracketQuery.data.matches ?? []).filter((m) => !m.group_id).length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">Плей-офф</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">{t("td.playoff")}</h3>
                     <BracketView matches={(bracketQuery.data.matches ?? []).filter((m) => !m.group_id)} teams={teamsQuery.data?.items ?? []} />
                   </div>
                 )}
                 {(bracketQuery.data.groups ?? []).length > 0 ? (
                   <GroupDEView groups={bracketQuery.data.groups ?? []} matches={bracketQuery.data.matches ?? []} teams={teamsQuery.data?.items ?? []} />
                 ) : (
-                  <EmptyState title="Сетка не сгенерирована" description="Администратор ещё не запустил сетку." />
+                  <EmptyState title={t("td.bracket.empty")} description={t("td.bracket.emptyDesc")} />
                 )}
               </div>
             ) : (bracketQuery.data?.matches ?? []).length > 0 ? (
               <BracketView matches={bracketQuery.data?.matches ?? []} teams={teamsQuery.data?.items ?? []} participants={participantsQuery.data?.items ?? []} />
             ) : (
-              <EmptyState title="Сетка не сгенерирована" description="Администратор ещё не запустил сетку." />
+              <EmptyState title={t("td.bracket.empty")} description={t("td.bracket.emptyDesc")} />
             )
         )}
 
@@ -468,7 +444,7 @@ export function TournamentDetailsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <EmptyState title="Участников пока нет" description="Никто ещё не записался на турнир." />
+              <EmptyState title={t("td.participants.empty")} description={t("td.participants.emptyDesc")} />
             )
           ) : teamsQuery.isLoading ? <Spinner /> :
             teamsQuery.isError ? <ErrorState /> :
@@ -479,9 +455,9 @@ export function TournamentDetailsPage() {
                 {teamDetailsQuery.data && detailsTeamId ? (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-[#666666]">Состав команды</p>
+                      <p className="text-xs text-[#666666]">{t("td.roster")}</p>
                       <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDetailsTeamId(null)}>
-                        Закрыть
+                        {t("td.close")}
                       </Button>
                     </div>
                     <TeamDetailsCard data={teamDetailsQuery.data} />
@@ -489,7 +465,7 @@ export function TournamentDetailsPage() {
                 ) : null}
               </>
             ) : (
-              <EmptyState title="Команд пока нет" description="Регистрация ещё не началась." />
+              <EmptyState title={t("td.teams.empty")} description={t("td.teams.emptyDesc")} />
             )
         )}
 
@@ -500,7 +476,7 @@ export function TournamentDetailsPage() {
           matchesQuery.data?.items.length ? (
             <MatchesTable matches={matchesQuery.data.items} teams={teamsQuery.data?.items ?? []} participants={participantsQuery.data?.items ?? []} />
           ) : (
-            <EmptyState title="Матчей пока нет" description="Матчи появятся после генерации сетки." />
+            <EmptyState title={t("td.matches.empty")} description={t("td.matches.emptyDesc")} />
           )
         )}
 
@@ -521,34 +497,35 @@ export function TournamentDetailsPage() {
           (placementsQuery.data?.placements ?? []).length > 0 ? (
             <PlacementsView placements={placementsQuery.data!.placements} />
           ) : (
-            <EmptyState title="Места ещё не определены" description="Распределение мест обновляется по ходу турнира." />
+            <EmptyState title={t("td.places.empty")} description={t("td.places.emptyDesc")} />
           )
         )}
 
-        {/* rules */}
+        {/* chat */}
         {tab === "chat" && (
           <ChatPanel tournamentId={id} currentUserId={user?.id} />
         )}
 
+        {/* rules */}
         {tab === "rules" && (
           <div className="grid gap-4">
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
-                <CardHeader><CardTitle>Правила</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{t("td.rules")}</CardTitle></CardHeader>
                 <CardContent className="text-sm text-[#9e9e9e] leading-relaxed">
-                  {tournament.rules || "Не заполнено"}
+                  {tournament.rules || t("td.rules.empty")}
                 </CardContent>
               </Card>
               {tournament.location && (
                 <Card>
-                  <CardHeader><CardTitle>Место проведения</CardTitle></CardHeader>
+                  <CardHeader><CardTitle>{t("td.venue")}</CardTitle></CardHeader>
                   <CardContent className="text-sm text-[#9e9e9e]">{tournament.location}</CardContent>
                 </Card>
               )}
             </div>
             {tournament.latitude != null && tournament.longitude != null && (
               <Card>
-                <CardHeader><CardTitle>Карта</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{t("td.map")}</CardTitle></CardHeader>
                 <CardContent>
                   <MapView lat={tournament.latitude} lng={tournament.longitude} height={360} />
                 </CardContent>

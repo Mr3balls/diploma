@@ -1,5 +1,5 @@
 import type { Team } from "@/shared/types/api";
-import { teamStatusLabel } from "@/shared/lib/enums";
+import { useLang } from "@/app/providers/lang-provider";
 import { Badge } from "@/shared/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { Button } from "@/shared/ui/button";
@@ -26,17 +26,19 @@ export function TeamsTable({
   onReject?: (id: string) => void;
   onDelete?: (id: string) => void;
 }) {
+  const { t } = useLang();
+
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Название</TableHead>
-            {withActions ? <TableHead>Статус</TableHead> : null}
-            <TableHead>Капитан</TableHead>
-            {withActions ? <TableHead>Подтв. игроков</TableHead> : null}
-            {withActions ? <TableHead>Дубликаты</TableHead> : null}
-            {(withActions || onOpen) ? <TableHead>Действия</TableHead> : null}
+            <TableHead>{t("teamsTable.name")}</TableHead>
+            {withActions ? <TableHead>{t("teamsTable.status")}</TableHead> : null}
+            <TableHead>{t("teamsTable.captain")}</TableHead>
+            {withActions ? <TableHead>{t("teamsTable.confirmedPlayers")}</TableHead> : null}
+            {withActions ? <TableHead>{t("teamsTable.duplicates")}</TableHead> : null}
+            {(withActions || onOpen) ? <TableHead>{t("teamsTable.actions")}</TableHead> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -45,7 +47,7 @@ export function TeamsTable({
               <TableCell className="font-medium text-white">{team.name}</TableCell>
               {withActions ? (
                 <TableCell>
-                  <Badge tone={tone(team.status)}>{teamStatusLabel[team.status]}</Badge>
+                  <Badge tone={tone(team.status)}>{t(`teamStatus.${team.status}`)}</Badge>
                 </TableCell>
               ) : null}
               <TableCell>{team.captain_nickname || "—"}</TableCell>
@@ -72,22 +74,22 @@ export function TeamsTable({
                   <div className="flex flex-wrap gap-2">
                     {onOpen ? (
                       <Button variant="outline" size="sm" onClick={() => onOpen(team.id)}>
-                        Состав
+                        {t("teamsTable.roster")}
                       </Button>
                     ) : null}
                     {withActions && onApprove ? (
                       <Button size="sm" onClick={() => onApprove(team.id)}>
-                        Одобрить
+                        {t("teamsTable.approve")}
                       </Button>
                     ) : null}
                     {withActions && onReject ? (
                       <Button variant="destructive" size="sm" onClick={() => onReject(team.id)}>
-                        Отклонить
+                        {t("teamsTable.reject")}
                       </Button>
                     ) : null}
                     {withActions && onDelete ? (
                       <Button variant="destructive" size="sm" onClick={() => onDelete(team.id)}>
-                        Удалить
+                        {t("teamsTable.delete")}
                       </Button>
                     ) : null}
                   </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Search, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/app/providers/auth-provider";
+import { useLang } from "@/app/providers/lang-provider";
 import { CreateTournamentForm } from "@/features/tournaments/components/create-tournament-form";
 import { TournamentCard } from "@/features/tournaments/components/tournament-card";
 import { useCreateTournament, useTournaments } from "@/features/tournaments/hooks";
@@ -10,23 +11,14 @@ import { EmptyState } from "@/shared/ui/empty-state";
 import { ErrorState } from "@/shared/ui/error-state";
 import { Spinner } from "@/shared/ui/spinner";
 import { Card, CardContent } from "@/shared/ui/card";
-import { tournamentStatusLabel } from "@/shared/lib/enums";
 import type { TournamentStatus } from "@/shared/types/api";
 import type { TournamentFormValues } from "@/features/tournaments/schemas";
 import { getErrorMessage } from "@/shared/lib/http";
 import { cn } from "@/shared/lib/cn";
 
-const STATUS_PILLS: { value: TournamentStatus | ""; label: string }[] = [
-  { value: "",                   label: "Все" },
-  { value: "registration_open",  label: tournamentStatusLabel["registration_open"] },
-  { value: "in_progress",        label: tournamentStatusLabel["in_progress"] },
-  { value: "finished",           label: tournamentStatusLabel["finished"] },
-  { value: "draft",              label: tournamentStatusLabel["draft"] },
-  { value: "cancelled",          label: tournamentStatusLabel["cancelled"] },
-];
-
 export function TournamentsListPage() {
   const { isAuthenticated } = useAuth();
+  const { t } = useLang();
   const [showCreate, setShowCreate] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -36,6 +28,15 @@ export function TournamentsListPage() {
     const id = setTimeout(() => setDebouncedQuery(query.trim()), 400);
     return () => clearTimeout(id);
   }, [query]);
+
+  const STATUS_PILLS: { value: TournamentStatus | ""; label: string }[] = [
+    { value: "",                   label: t("tournamentsList.all") },
+    { value: "registration_open",  label: t("status.registration_open") },
+    { value: "in_progress",        label: t("status.in_progress") },
+    { value: "finished",           label: t("status.finished") },
+    { value: "draft",              label: t("status.draft") },
+    { value: "cancelled",          label: t("status.cancelled") },
+  ];
 
   const tournamentsQuery = useTournaments({
     status: status || undefined,
@@ -47,7 +48,7 @@ export function TournamentsListPage() {
   async function handleCreate(values: TournamentFormValues) {
     try {
       await createMutation.mutateAsync(values);
-      toast.success("Турнир создан");
+      toast.success(t("tournamentsList.create"));
       setShowCreate(false);
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -70,13 +71,13 @@ export function TournamentsListPage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">
-                Платформа
+                {t("tournamentsList.platform")}
               </p>
               <h1
                 className="font-black uppercase text-white"
                 style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", letterSpacing: "-0.03em" }}
               >
-                Турниры
+                {t("tournamentsList.title")}
               </h1>
             </div>
             {isAuthenticated && (
@@ -85,9 +86,9 @@ export function TournamentsListPage() {
                 onClick={() => setShowCreate((v) => !v)}
               >
                 {showCreate ? (
-                  <><X className="h-4 w-4" /> Закрыть</>
+                  <><X className="h-4 w-4" /> {t("tournamentsList.close")}</>
                 ) : (
-                  <><Plus className="h-4 w-4" /> Создать турнир</>
+                  <><Plus className="h-4 w-4" /> {t("tournamentsList.create")}</>
                 )}
               </Button>
             )}
@@ -102,7 +103,7 @@ export function TournamentsListPage() {
           <Card>
             <CardContent className="pt-5">
               <CreateTournamentForm
-                submitLabel="Создать"
+                submitLabel={t("tournamentsList.createLabel")}
                 onSubmit={handleCreate}
                 isSubmitting={createMutation.isPending}
               />
@@ -119,7 +120,7 @@ export function TournamentsListPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск турнира..."
+              placeholder={t("tournamentsList.search")}
               className="h-11 w-full rounded-xl border border-[#2d2d2d] bg-[#1a1a1a] pl-9 pr-4 text-sm text-white outline-none placeholder:text-[#666666] focus:border-[#ff5500] transition-colors"
             />
             {query && (
@@ -155,8 +156,8 @@ export function TournamentsListPage() {
         {!tournamentsQuery.isLoading && tournamentsQuery.data && (
           <p className="text-xs text-[#666666]">
             {tournamentsQuery.data.total > 0
-              ? `Найдено: ${tournamentsQuery.data.total} турниров`
-              : "Ничего не найдено"}
+              ? t("tournamentsList.found", { n: tournamentsQuery.data.total })
+              : t("tournamentsList.notFound")}
           </p>
         )}
 
@@ -166,8 +167,8 @@ export function TournamentsListPage() {
 
         {!tournamentsQuery.isLoading && !tournamentsQuery.isError && !items.length ? (
           <EmptyState
-            title="Турниров нет"
-            description="По заданным фильтрам ничего не найдено."
+            title={t("tournamentsList.empty")}
+            description={t("tournamentsList.emptyDesc")}
           />
         ) : null}
 

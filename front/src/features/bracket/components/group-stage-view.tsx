@@ -1,7 +1,7 @@
 ﻿import type { BracketGroup, Match, Team } from "@/shared/types/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
-import { matchStatusLabel } from "@/shared/lib/enums";
+import { useLang } from "@/app/providers/lang-provider";
 import { formatDateTime } from "@/shared/lib/date";
 import { Button } from "@/shared/ui/button";
 import { useAdminSetResult } from "@/features/matches/hooks";
@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Trophy } from "lucide-react";
 
 function GroupTable({ group, teamsById }: { group: BracketGroup; teamsById: Map<string, Team> }) {
+  const { t } = useLang();
   return (
     <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
       <CardHeader className="pb-2">
@@ -18,11 +19,11 @@ function GroupTable({ group, teamsById }: { group: BracketGroup; teamsById: Map<
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[#2d2d2d] text-[#9e9e9e]">
-              <th className="px-3 py-2 text-left">Команда</th>
-              <th className="px-2 py-2 text-center">И</th>
-              <th className="px-2 py-2 text-center">В</th>
-              <th className="px-2 py-2 text-center">П</th>
-              <th className="px-2 py-2 text-center">О</th>
+              <th className="px-3 py-2 text-left">{t("teamsTable.name")}</th>
+              <th className="px-2 py-2 text-center">{t("group.played")}</th>
+              <th className="px-2 py-2 text-center">{t("group.wins")}</th>
+              <th className="px-2 py-2 text-center">{t("group.losses")}</th>
+              <th className="px-2 py-2 text-center">{t("group.points")}</th>
             </tr>
           </thead>
           <tbody>
@@ -47,7 +48,7 @@ function GroupTable({ group, teamsById }: { group: BracketGroup; teamsById: Map<
             })}
           </tbody>
         </table>
-        <p className="px-3 py-1 text-xs text-[#666666]">↑ выходят в плей-офф (топ 2)</p>
+        <p className="px-3 py-1 text-xs text-[#666666]">{t("group.advanceHint")}</p>
       </CardContent>
     </Card>
   );
@@ -65,6 +66,7 @@ function GroupMatchCard({
   tournamentId?: string;
 }) {
   const [picking, setPicking] = useState(false);
+  const { t } = useLang();
   const adminSetResult = useAdminSetResult(tournamentId ?? "");
   const t1 = match.team1_id ? (teamsById.get(match.team1_id)?.name ?? match.team1_id) : "TBD";
   const t2 = match.team2_id ? (teamsById.get(match.team2_id)?.name ?? match.team2_id) : "TBD";
@@ -81,7 +83,7 @@ function GroupMatchCard({
     <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
       <CardContent className="space-y-1 p-3">
         <div className="flex items-center justify-between">
-          <Badge tone={isFinished ? "success" : "muted"}>{matchStatusLabel[match.status] ?? match.status}</Badge>
+          <Badge tone={isFinished ? "success" : "muted"}>{t(`matchStatus.${match.status}`)}</Badge>
           {match.scheduled_at && <span className="text-xs text-[#666666]">{formatDateTime(match.scheduled_at)}</span>}
         </div>
         {([
@@ -104,7 +106,7 @@ function GroupMatchCard({
         {match.score_text && <p className="text-center text-xs text-[#9e9e9e]">{match.score_text}</p>}
         {adminMode && !isFinished && !picking && match.team1_id && match.team2_id && (
           <Button size="sm" variant="secondary" className="mt-1 w-full" onClick={() => setPicking(true)}>
-            Указать победителя
+            {t("bracket.setWinner")}
           </Button>
         )}
         {picking && (
@@ -132,7 +134,7 @@ function GroupMatchCard({
               </Button>
             )}
             <Button size="sm" variant="ghost" className="w-full" onClick={() => setPicking(false)}>
-              Отмена
+              {t("bracket.cancel")}
             </Button>
           </div>
         )}
@@ -154,7 +156,8 @@ export function GroupStageView({
   adminMode?: boolean;
   tournamentId?: string;
 }) {
-  const teamsById = new Map(teams.map((t) => [t.id, t]));
+  const { t } = useLang();
+  const teamsById = new Map(teams.map((tm) => [tm.id, tm]));
 
   // group_id is omitempty in JSON: present as string for group matches, absent for others
   const groupMatches = matches.filter((m) => m.group_id !== undefined && m.group_id !== null);
@@ -178,7 +181,7 @@ export function GroupStageView({
       {/* Group matches — hidden after advancing to playoff (group matches get deleted) */}
       {groupMatches.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">Матчи группового этапа</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[#9e9e9e]">{t("group.stageMatches")}</h3>
           {groups.map((g) => {
             const gMatches = matchesByGroup.get(g.id) ?? [];
             if (gMatches.length === 0) return null;

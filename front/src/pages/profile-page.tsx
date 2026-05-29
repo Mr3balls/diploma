@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { UserCircle, Copy, ShieldCheck, Trophy, Users, Star, LayoutList } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
+import { useLang } from "@/app/providers/lang-provider";
 import { profileSchema, type ProfileFormValues } from "@/features/profile/schemas";
 import { useDeleteMe, useMe, useMyStats, useUpdateMe } from "@/features/profile/hooks";
 import { FormField } from "@/shared/ui/form-field";
@@ -15,11 +16,6 @@ import { ErrorState } from "@/shared/ui/error-state";
 import { Spinner } from "@/shared/ui/spinner";
 import { getErrorMessage } from "@/shared/lib/http";
 
-function copyToClipboard(text: string) {
-  void navigator.clipboard.writeText(text);
-  toast.success("Скопировано");
-}
-
 function getInitials(user: { first_name?: string | null; nickname?: string | null }) {
   if (user.first_name) return user.first_name.slice(0, 2).toUpperCase();
   if (user.nickname)   return user.nickname.slice(0, 2).toUpperCase();
@@ -28,6 +24,7 @@ function getInitials(user: { first_name?: string | null; nickname?: string | nul
 
 export function ProfilePage() {
   const { logout } = useAuth();
+  const { t } = useLang();
   const meQuery = useMe();
   const statsQuery = useMyStats();
   const updateMutation = useUpdateMe();
@@ -53,23 +50,28 @@ export function ProfilePage() {
   if (meQuery.isError || !meQuery.data) return <ErrorState />;
 
   const me = meQuery.data;
-  const displayName = [me.first_name, me.last_name].filter(Boolean).join(" ") || me.nickname || "Пользователь";
+  const displayName = [me.first_name, me.last_name].filter(Boolean).join(" ") || me.nickname || t("profile.user");
   const isPlatformAdmin = me.role === "platform_admin" || me.is_platform_admin;
+
+  function copyToClipboard(text: string) {
+    void navigator.clipboard.writeText(text);
+    toast.success(t("profile.copied"));
+  }
 
   async function onSubmit(values: ProfileFormValues) {
     try {
       await updateMutation.mutateAsync(values);
-      toast.success("Профиль обновлён");
+      toast.success(t("profile.saved"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   }
 
   async function onDeleteAccount() {
-    if (!window.confirm("Удалить аккаунт? Это действие нельзя отменить.")) return;
+    if (!window.confirm(t("profile.deleteConfirm"))) return;
     try {
       await deleteMutation.mutateAsync();
-      toast.success("Аккаунт удалён");
+      toast.success(t("profile.deleted"));
       await logout();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -118,10 +120,10 @@ export function ProfilePage() {
               {/* Stats strip */}
               <div className="flex flex-wrap gap-4">
                 {[
-                  { icon: Trophy, label: "Организовано", value: statsQuery.data?.tournaments_organized },
-                  { icon: LayoutList, label: "Участий", value: statsQuery.data?.tournaments_participated },
-                  { icon: Star, label: "Побед", value: statsQuery.data?.tournaments_won },
-                  { icon: Users, label: "Команд", value: statsQuery.data?.teams_count },
+                  { icon: Trophy, label: t("profile.organized"), value: statsQuery.data?.tournaments_organized },
+                  { icon: LayoutList, label: t("profile.participated"), value: statsQuery.data?.tournaments_participated },
+                  { icon: Star, label: t("profile.won"), value: statsQuery.data?.tournaments_won },
+                  { icon: Users, label: t("profile.teams"), value: statsQuery.data?.teams_count },
                 ].map(({ icon: Icon, label, value }) => (
                   <div key={label} className="flex items-center gap-2">
                     <Icon className="h-4 w-4 text-[#ff5500]" />
@@ -138,7 +140,7 @@ export function ProfilePage() {
                 className="inline-flex items-center gap-1.5 text-xs text-[#666666] hover:text-[#ff5500] transition-colors"
               >
                 <LayoutList className="h-3.5 w-3.5" />
-                Мои турниры →
+                {t("profile.myTournaments")}
               </Link>
             </div>
           </div>
@@ -153,28 +155,28 @@ export function ProfilePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserCircle className="h-5 w-5 text-[#ff5500]" />
-              Личные данные
+              {t("profile.personalData")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
               <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Имя" error={form.formState.errors.first_name?.message}>
-                  <Input {...form.register("first_name")} placeholder="Иван" />
+                <FormField label={t("profile.firstName")} error={form.formState.errors.first_name?.message}>
+                  <Input {...form.register("first_name")} placeholder={t("profile.firstNamePlaceholder")} />
                 </FormField>
-                <FormField label="Фамилия" error={form.formState.errors.last_name?.message}>
-                  <Input {...form.register("last_name")} placeholder="Иванов" />
+                <FormField label={t("profile.lastName")} error={form.formState.errors.last_name?.message}>
+                  <Input {...form.register("last_name")} placeholder={t("profile.lastNamePlaceholder")} />
                 </FormField>
               </div>
-              <FormField label="Никнейм" error={form.formState.errors.nickname?.message}>
+              <FormField label={t("profile.nickname")} error={form.formState.errors.nickname?.message}>
                 <Input {...form.register("nickname")} placeholder="player123" />
               </FormField>
-              <FormField label="Телефон" error={form.formState.errors.phone?.message}>
+              <FormField label={t("profile.phone")} error={form.formState.errors.phone?.message}>
                 <Input {...form.register("phone")} placeholder="+71234567890" />
               </FormField>
               <div>
                 <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Сохранение..." : "Сохранить изменения"}
+                  {updateMutation.isPending ? t("profile.saving") : t("profile.save")}
                 </Button>
               </div>
             </form>
@@ -186,7 +188,7 @@ export function ProfilePage() {
           {/* account info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Информация об аккаунте</CardTitle>
+              <CardTitle className="text-sm">{t("profile.accountInfo")}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm">
               <div className="space-y-1">
@@ -194,7 +196,7 @@ export function ProfilePage() {
                 <p className="text-white">{me.email}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-[#666666] uppercase tracking-wide">ID пользователя</p>
+                <p className="text-xs text-[#666666] uppercase tracking-wide">{t("profile.userId")}</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 truncate rounded-lg bg-[#111111] px-2 py-1.5 text-xs text-[#9e9e9e] select-all">
                     {me.id}
@@ -207,7 +209,7 @@ export function ProfilePage() {
                     <Copy className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <p className="text-[10px] text-[#444444]">Используется для добавления менеджеров турнира</p>
+                <p className="text-[10px] text-[#444444]">{t("profile.userIdHint")}</p>
               </div>
             </CardContent>
           </Card>
@@ -215,12 +217,10 @@ export function ProfilePage() {
           {/* danger zone */}
           <Card className="border-red-900/40">
             <CardHeader>
-              <CardTitle className="text-sm text-red-400">Опасная зона</CardTitle>
+              <CardTitle className="text-sm text-red-400">{t("profile.dangerZone")}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <p className="text-xs text-[#666666]">
-                Удаление аккаунта необратимо. Все данные будут утеряны.
-              </p>
+              <p className="text-xs text-[#666666]">{t("profile.deleteWarning")}</p>
               <Button
                 type="button"
                 variant="destructive"
@@ -228,7 +228,7 @@ export function ProfilePage() {
                 disabled={deleteMutation.isPending}
                 onClick={() => void onDeleteAccount()}
               >
-                {deleteMutation.isPending ? "Удаление..." : "Удалить аккаунт"}
+                {deleteMutation.isPending ? t("profile.deleting") : t("profile.deleteAccount")}
               </Button>
             </CardContent>
           </Card>

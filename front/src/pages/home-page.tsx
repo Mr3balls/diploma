@@ -2,29 +2,16 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useTournaments } from "@/features/tournaments/hooks";
 import { TournamentCard } from "@/features/tournaments/components/tournament-card";
+import { useLang } from "@/app/providers/lang-provider";
 import { Button } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Spinner } from "@/shared/ui/spinner";
 import { ParallaxCarousel } from "@/shared/ui/parallax-carousel";
 import { useAuth } from "@/app/providers/auth-provider";
 
-const FEATURES = [
-  {
-    title: "Регистрируйся",
-    desc: "Создай аккаунт за 30 секунд и записывайся на открытые турниры — соло или с командой.",
-  },
-  {
-    title: "Играй",
-    desc: "Получай расписание матчей, уведомления о результатах и следи за сеткой в реальном времени.",
-  },
-  {
-    title: "Побеждай",
-    desc: "Капитан управляет составом, администратор фиксирует результаты, победитель попадает в историю.",
-  },
-];
-
 export function HomePage() {
   const { isAuthenticated } = useAuth();
+  const { t } = useLang();
   const tournamentsQuery = useTournaments();
   const active = (tournamentsQuery.data?.items ?? []).filter(
     (t) => t.status === "registration_open" || t.status === "in_progress",
@@ -32,6 +19,12 @@ export function HomePage() {
   const latest = active.length
     ? active
     : (tournamentsQuery.data?.items ?? []).slice(0, 6);
+
+  const FEATURES = [
+    { title: t("home.step1.title"), desc: t("home.step1.desc") },
+    { title: t("home.step2.title"), desc: t("home.step2.desc") },
+    { title: t("home.step3.title"), desc: t("home.step3.desc") },
+  ];
 
   return (
     <div className="grid gap-0">
@@ -65,30 +58,30 @@ export function HomePage() {
           <div className="grid gap-10 md:grid-cols-[1fr_auto] md:items-center">
             <div className="space-y-7 max-w-2xl">
               <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">
-                Esports Platform
+                {t("home.platform")}
               </p>
               <h1
                 className="font-black leading-none text-white uppercase"
                 style={{ fontSize: "clamp(2.8rem, 7vw, 5.5rem)", letterSpacing: "-0.03em" }}
               >
-                Твой путь
+                {t("home.hero.titleLine1")}
                 <br />
-                <span className="text-[#ff5500]">к победе</span>
+                <span className="text-[#ff5500]">{t("home.hero.titleLine2")}</span>
                 <br />
-                начинается здесь
+                {t("home.hero.titleLine3")}
               </h1>
               <p className="text-[#9e9e9e] text-base max-w-md leading-relaxed">
-                Регистрируй команду, участвуй в турнирах, следи за сеткой и получай уведомления о каждом матче.
+                {t("home.hero.desc")}
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link to="/tournaments">
                   <Button size="lg" className="gap-2">
-                    Найти турнир <ArrowRight className="h-4 w-4" />
+                    {t("home.hero.findTournament")} <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
                 {!isAuthenticated && (
                   <Link to="/register">
-                    <Button size="lg" variant="outline">Создать аккаунт</Button>
+                    <Button size="lg" variant="outline">{t("home.hero.createAccount")}</Button>
                   </Link>
                 )}
               </div>
@@ -116,9 +109,9 @@ export function HomePage() {
       {/* ── How it works ──────────────────────────────────────────── */}
       <section className="py-20">
         <div className="mb-12 text-center">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">Как это работает</p>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">{t("home.how.label")}</p>
           <h2 className="text-3xl font-black uppercase text-white" style={{ letterSpacing: "-0.02em" }}>
-            Три шага до победы
+            {t("home.how.title")}
           </h2>
         </div>
         <div className="grid gap-px md:grid-cols-3 rounded-2xl overflow-hidden border border-[#2d2d2d]">
@@ -138,14 +131,14 @@ export function HomePage() {
       <section className="pb-20 space-y-6">
         <div className="flex items-end justify-between">
           <div>
-            <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">Прямо сейчас</p>
+            <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">{t("home.active.label")}</p>
             <h2 className="text-2xl font-black uppercase text-white" style={{ letterSpacing: "-0.02em" }}>
-              Актуальные турниры
+              {t("home.active.title")}
             </h2>
           </div>
           <Link to="/tournaments">
             <Button variant="outline" size="sm" className="gap-1.5">
-              Все турниры <ArrowRight className="h-3.5 w-3.5" />
+              {t("home.active.allTournaments")} <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </Link>
         </div>
@@ -159,7 +152,7 @@ export function HomePage() {
             ))}
           </div>
         ) : (
-          <EmptyState title="Турниров пока нет" description="После создания турниры будут отображаться здесь." />
+          <EmptyState title={t("home.active.empty")} description={t("home.active.emptyDesc")} />
         )}
       </section>
 

@@ -1,11 +1,11 @@
-﻿import type { Match, Team } from "@/shared/types/api";
+import type { Match, Team } from "@/shared/types/api";
 import type { Participant } from "@/features/challonge/types";
 import { formatDateTime } from "@/shared/lib/date";
-import { matchStatusLabel, matchTeamConfirmationLabel } from "@/shared/lib/enums";
 import { buildTeamsById, pickTeamName } from "@/shared/lib/bracket";
 import { Badge } from "@/shared/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { Button } from "@/shared/ui/button";
+import { useLang } from "@/app/providers/lang-provider";
 
 function tone(status: string) {
   if (status === "finished" || status === "confirmed") return "success";
@@ -60,6 +60,7 @@ export function MatchesTable({
   onApprove?: (match: Match) => void;
   onReject?: (match: Match) => void;
 }) {
+  const { t } = useLang();
   const teamsById = buildTeamsById(teams);
   const participantsById = new Map(participants.map((p) => [p.id, p]));
   const visibleMatches = matches.filter((m) => !m.is_bye);
@@ -69,12 +70,12 @@ export function MatchesTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Матч</TableHead>
-            <TableHead>Статус</TableHead>
-            <TableHead>Готовность</TableHead>
-            <TableHead>Время</TableHead>
-            <TableHead>Счёт</TableHead>
-            {adminMode ? <TableHead>Действия</TableHead> : null}
+            <TableHead>{t("matches.header.match")}</TableHead>
+            <TableHead>{t("matches.header.status")}</TableHead>
+            <TableHead>{t("matches.header.readiness")}</TableHead>
+            <TableHead>{t("matches.header.time")}</TableHead>
+            <TableHead>{t("matches.header.score")}</TableHead>
+            {adminMode ? <TableHead>{t("matches.header.actions")}</TableHead> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -85,24 +86,25 @@ export function MatchesTable({
                   {pickSideName(match, "1", teamsById, participantsById)} vs {pickSideName(match, "2", teamsById, participantsById)}
                 </div>
                 <div className="text-xs text-[#9e9e9e]">
-                  {match.bracket_section ? `${match.bracket_section} · ` : ""}Раунд {match.round_number ?? "—"} · Слот {match.slot_index ?? "—"}
+                  {match.bracket_section ? `${match.bracket_section} · ` : ""}
+                  {t("matches.roundSlot", { round: match.round_number ?? "—", slot: match.slot_index ?? "—" })}
                 </div>
               </TableCell>
               <TableCell>
-                <Badge tone={tone(match.status)}>{matchStatusLabel[match.status]}</Badge>
+                <Badge tone={tone(match.status)}>{t(`matchStatus.${match.status}`)}</Badge>
               </TableCell>
               <TableCell>
                 <div className="space-y-1 text-xs">
                   <div>
                     A:{" "}
                     {match.team1_confirmation_status
-                      ? matchTeamConfirmationLabel[match.team1_confirmation_status]
+                      ? t(`matchTeamStatus.${match.team1_confirmation_status}`)
                       : "—"}
                   </div>
                   <div>
                     B:{" "}
                     {match.team2_confirmation_status
-                      ? matchTeamConfirmationLabel[match.team2_confirmation_status]
+                      ? t(`matchTeamStatus.${match.team2_confirmation_status}`)
                       : "—"}
                   </div>
                 </div>
@@ -114,37 +116,37 @@ export function MatchesTable({
                   <div className="flex flex-wrap gap-2">
                     {onSchedule ? (
                       <Button variant="outline" size="sm" onClick={() => onSchedule(match)}>
-                        Время
+                        {t("matches.btnTime")}
                       </Button>
                     ) : null}
                     {onConfirmReady ? (
                       <Button variant="outline" size="sm" onClick={() => onConfirmReady(match)}>
-                        Готов
+                        {t("matches.btnReady")}
                       </Button>
                     ) : null}
                     {onReschedule ? (
                       <Button variant="outline" size="sm" onClick={() => onReschedule(match)}>
-                        Перенос
+                        {t("matches.btnReschedule")}
                       </Button>
                     ) : null}
                     {onIssue ? (
                       <Button variant="outline" size="sm" onClick={() => onIssue(match)}>
-                        Проблема
+                        {t("matches.btnIssue")}
                       </Button>
                     ) : null}
                     {onSubmitResult ? (
                       <Button size="sm" onClick={() => onSubmitResult(match)}>
-                        Результат
+                        {t("matches.btnResult")}
                       </Button>
                     ) : null}
                     {onApprove ? (
                       <Button size="sm" onClick={() => onApprove(match)}>
-                        Принять
+                        {t("matches.btnApprove")}
                       </Button>
                     ) : null}
                     {onReject ? (
                       <Button variant="destructive" size="sm" onClick={() => onReject(match)}>
-                        Отклонить
+                        {t("matches.btnReject")}
                       </Button>
                     ) : null}
                   </div>

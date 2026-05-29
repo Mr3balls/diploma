@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
 import { LayoutList, Trophy, Crown, Shield } from "lucide-react";
 import { useMyTournaments } from "@/features/profile/hooks";
+import { useLang } from "@/app/providers/lang-provider";
 import { Badge } from "@/shared/ui/badge";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { ErrorState } from "@/shared/ui/error-state";
 import { Spinner } from "@/shared/ui/spinner";
 import { formatDate } from "@/shared/lib/date";
-import { tournamentStatusLabel, tournamentFormatLabel } from "@/shared/lib/enums";
 import type { MyTournamentEntry } from "@/shared/types/api";
 
 const STATUS_TONE: Record<string, "default" | "success" | "danger" | "muted" | "warning"> = {
@@ -21,12 +21,6 @@ const STATUS_TONE: Record<string, "default" | "success" | "danger" | "muted" | "
   ready: "default",
 };
 
-const ROLE_LABEL: Record<string, string> = {
-  organizer: "Организатор",
-  manager: "Менеджер",
-  participant: "Участник",
-};
-
 const ROLE_TONE: Record<string, "default" | "success" | "danger" | "muted" | "warning"> = {
   organizer: "warning",
   manager: "default",
@@ -34,6 +28,14 @@ const ROLE_TONE: Record<string, "default" | "success" | "danger" | "muted" | "wa
 };
 
 function TournamentRow({ entry }: { entry: MyTournamentEntry }) {
+  const { t } = useLang();
+
+  const ROLE_LABEL: Record<string, string> = {
+    organizer: t("role.organizer"),
+    manager: t("role.manager"),
+    participant: t("role.participant"),
+  };
+
   return (
     <Link
       to={`/tournaments/${entry.id}`}
@@ -44,7 +46,7 @@ function TournamentRow({ entry }: { entry: MyTournamentEntry }) {
           {entry.is_winner && (
             <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#f59e0b]">
               <Crown className="h-3 w-3" />
-              Победитель
+              {t("myTournaments.winner")}
             </span>
           )}
           <span className="text-sm font-semibold text-white group-hover:text-[#ff5500] transition-colors truncate">
@@ -54,7 +56,7 @@ function TournamentRow({ entry }: { entry: MyTournamentEntry }) {
         <div className="flex flex-wrap items-center gap-2 text-xs text-[#666666]">
           {entry.discipline && <span>{entry.discipline}</span>}
           <span>·</span>
-          <span>{tournamentFormatLabel[entry.format] ?? entry.format}</span>
+          <span>{t(`format.${entry.format}`)}</span>
           {entry.start_at && (
             <>
               <span>·</span>
@@ -70,7 +72,7 @@ function TournamentRow({ entry }: { entry: MyTournamentEntry }) {
           {ROLE_LABEL[entry.user_role] ?? entry.user_role}
         </Badge>
         <Badge tone={STATUS_TONE[entry.status] ?? "muted"}>
-          {tournamentStatusLabel[entry.status] ?? entry.status}
+          {t(`status.${entry.status}`)}
         </Badge>
       </div>
     </Link>
@@ -78,6 +80,7 @@ function TournamentRow({ entry }: { entry: MyTournamentEntry }) {
 }
 
 export function MyTournamentsPage() {
+  const { t } = useLang();
   const query = useMyTournaments();
   const items = query.data?.items ?? [];
 
@@ -107,10 +110,12 @@ export function MyTournamentsPage() {
                   className="font-black uppercase text-white"
                   style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)", letterSpacing: "-0.03em" }}
                 >
-                  Мои турниры
+                  {t("myTournaments.title")}
                 </h1>
                 <p className="text-sm text-[#666666]">
-                  {items.length > 0 ? `${items.length} турниров` : "Нет турниров"}
+                  {items.length > 0
+                    ? t("myTournaments.count", { n: items.length })
+                    : t("myTournaments.none")}
                 </p>
               </div>
             </div>
@@ -121,17 +126,17 @@ export function MyTournamentsPage() {
                 <div className="flex items-center gap-2 rounded-lg border border-[#2d2d2d] bg-[#1a1a1a] px-3 py-2">
                   <Shield className="h-4 w-4 text-[#ff5500]" />
                   <span className="text-sm font-bold text-white">{organized.length}</span>
-                  <span className="text-xs text-[#666666]">организовано</span>
+                  <span className="text-xs text-[#666666]">{t("myTournaments.organizedStat")}</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-lg border border-[#2d2d2d] bg-[#1a1a1a] px-3 py-2">
                   <LayoutList className="h-4 w-4 text-[#ff5500]" />
                   <span className="text-sm font-bold text-white">{participated.length}</span>
-                  <span className="text-xs text-[#666666]">участий</span>
+                  <span className="text-xs text-[#666666]">{t("myTournaments.participatedStat")}</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-lg border border-[#2d2d2d] bg-[#1a1a1a] px-3 py-2">
                   <Trophy className="h-4 w-4 text-[#f59e0b]" />
-                  <span className="text-sm font-bold text-white">{items.filter((t) => t.is_winner).length}</span>
-                  <span className="text-xs text-[#666666]">побед</span>
+                  <span className="text-sm font-bold text-white">{items.filter((i) => i.is_winner).length}</span>
+                  <span className="text-xs text-[#666666]">{t("myTournaments.winsStat")}</span>
                 </div>
               </div>
             )}
@@ -146,8 +151,8 @@ export function MyTournamentsPage() {
 
         {!query.isLoading && !query.isError && items.length === 0 && (
           <EmptyState
-            title="Турниров пока нет"
-            description="Создайте турнир или запишитесь как участник."
+            title={t("myTournaments.empty")}
+            description={t("myTournaments.emptyDesc")}
           />
         )}
 
@@ -155,9 +160,9 @@ export function MyTournamentsPage() {
           <section className="grid gap-3">
             <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#666666]">
               <Shield className="h-3.5 w-3.5 text-[#ff5500]" />
-              Организую ({organized.length})
+              {t("myTournaments.sectionOrg", { n: organized.length })}
             </h2>
-            {organized.map((t) => <TournamentRow key={t.id} entry={t} />)}
+            {organized.map((entry) => <TournamentRow key={entry.id} entry={entry} />)}
           </section>
         )}
 
@@ -165,9 +170,9 @@ export function MyTournamentsPage() {
           <section className="grid gap-3">
             <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#666666]">
               <LayoutList className="h-3.5 w-3.5 text-[#ff5500]" />
-              Участвую ({participated.length})
+              {t("myTournaments.sectionPart", { n: participated.length })}
             </h2>
-            {participated.map((t) => <TournamentRow key={t.id} entry={t} />)}
+            {participated.map((entry) => <TournamentRow key={entry.id} entry={entry} />)}
           </section>
         )}
       </div>

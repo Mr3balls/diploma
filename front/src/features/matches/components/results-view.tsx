@@ -1,8 +1,9 @@
-﻿import type { Match, Team } from "@/shared/types/api";
+import type { Match, Team } from "@/shared/types/api";
 import type { Participant } from "@/features/challonge/types";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Trophy } from "lucide-react";
 import { formatDateTime } from "@/shared/lib/date";
+import { useLang } from "@/app/providers/lang-provider";
 
 function resolveName(
   id: string | null | undefined,
@@ -21,10 +22,12 @@ function ResultCard({
   match,
   teamsById,
   participantsById,
+  t,
 }: {
   match: Match;
   teamsById: Map<string, Team>;
   participantsById: Map<string, Participant>;
+  t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   const side1Id = match.team1_id ?? match.participant1_id;
   const side2Id = match.team2_id ?? match.participant2_id;
@@ -67,7 +70,7 @@ function ResultCard({
         )}
 
         {match.round_number != null && (
-          <p className="text-xs text-[#666666]">Раунд {match.round_number}</p>
+          <p className="text-xs text-[#666666]">{t("results.round", { n: match.round_number })}</p>
         )}
       </CardContent>
     </Card>
@@ -83,6 +86,7 @@ export function ResultsView({
   teams?: Team[];
   participants?: Participant[];
 }) {
+  const { t } = useLang();
   const finished = matches.filter((m) => m.status === "finished" || m.status === "confirmed");
 
   const teamsById = new Map(teams.map((t) => [t.id, t]));
@@ -91,7 +95,7 @@ export function ResultsView({
   if (finished.length === 0) {
     return (
       <div className="rounded-xl border border-[#2d2d2d] px-6 py-10 text-center text-sm text-[#666666]">
-        Завершённых матчей пока нет
+        {t("results.empty")}
       </div>
     );
   }
@@ -99,7 +103,7 @@ export function ResultsView({
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {finished.map((m) => (
-        <ResultCard key={m.id} match={m} teamsById={teamsById} participantsById={participantsById} />
+        <ResultCard key={m.id} match={m} teamsById={teamsById} participantsById={participantsById} t={t} />
       ))}
     </div>
   );

@@ -1,12 +1,8 @@
-﻿import type { BracketGroup, Match, Team } from "@/shared/types/api";
+import type { BracketGroup, Match, Team } from "@/shared/types/api";
 import { BracketView } from "./bracket-view";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { useLang } from "@/app/providers/lang-provider";
 
-const QP_LABEL: Record<number, string> = {
-  1: "→ Полуфинал",
-  2: "→ Четвертьфинал",
-  3: "→ Четвертьфинал",
-};
 const QP_COLOR: Record<number, string> = {
   1: "text-yellow-400",
   2: "text-[#ff7733]",
@@ -14,6 +10,14 @@ const QP_COLOR: Record<number, string> = {
 };
 
 function GroupSeedTable({ group, teamsById }: { group: BracketGroup; teamsById: Map<string, Team> }) {
+  const { t } = useLang();
+
+  const qpLabel: Record<number, string> = {
+    1: t("bracket.toSemiFinal"),
+    2: t("bracket.toQuarterFinal"),
+    3: t("bracket.toQuarterFinal"),
+  };
+
   return (
     <Card className="border-[#2d2d2d] bg-[#1a1a1a]">
       <CardHeader className="pb-2">
@@ -23,8 +27,8 @@ function GroupSeedTable({ group, teamsById }: { group: BracketGroup; teamsById: 
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[#2d2d2d] text-[#9e9e9e]">
-              <th className="px-3 py-2 text-left">Команда</th>
-              <th className="px-3 py-2 text-right">Статус</th>
+              <th className="px-3 py-2 text-left">{t("teamsTable.name")}</th>
+              <th className="px-3 py-2 text-right">{t("teamsTable.status")}</th>
             </tr>
           </thead>
           <tbody>
@@ -35,7 +39,7 @@ function GroupSeedTable({ group, teamsById }: { group: BracketGroup; teamsById: 
                 <tr key={m.id} className="border-b border-[#2d2d2d]/50">
                   <td className="px-3 py-2 text-white">{team?.name ?? m.team_id}</td>
                   <td className={`px-3 py-2 text-right font-semibold ${qp ? QP_COLOR[qp] : "text-[#666666]"}`}>
-                    {qp ? QP_LABEL[qp] : "—"}
+                    {qp ? qpLabel[qp] : "—"}
                   </td>
                 </tr>
               );
