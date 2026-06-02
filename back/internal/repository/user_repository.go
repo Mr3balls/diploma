@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"esports-backend/internal/entity"
@@ -28,7 +29,7 @@ func (r *UserRepository) Create(ctx context.Context, u *entity.User) error {
 
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
 	query := `
-        SELECT id, first_name, last_name, email, phone, nickname, password_hash, avatar_url, is_blocked, created_at, updated_at, deleted_at
+        SELECT id, first_name, last_name, email, phone, nickname, password_hash, avatar_url, is_blocked, lang, notification_preferences, created_at, updated_at, deleted_at
         FROM users
         WHERE lower(email) = lower($1) AND deleted_at IS NULL
     `
@@ -37,7 +38,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entity.
 
 func (r *UserRepository) GetByNickname(ctx context.Context, nickname string) (*entity.User, error) {
 	query := `
-        SELECT id, first_name, last_name, email, phone, nickname, password_hash, avatar_url, is_blocked, created_at, updated_at, deleted_at
+        SELECT id, first_name, last_name, email, phone, nickname, password_hash, avatar_url, is_blocked, lang, notification_preferences, created_at, updated_at, deleted_at
         FROM users
         WHERE lower(nickname) = lower($1) AND deleted_at IS NULL
     `
@@ -46,7 +47,7 @@ func (r *UserRepository) GetByNickname(ctx context.Context, nickname string) (*e
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*entity.User, error) {
 	query := `
-        SELECT id, first_name, last_name, email, phone, nickname, password_hash, avatar_url, is_blocked, created_at, updated_at, deleted_at
+        SELECT id, first_name, last_name, email, phone, nickname, password_hash, avatar_url, is_blocked, lang, notification_preferences, created_at, updated_at, deleted_at
         FROM users
         WHERE id = $1 AND deleted_at IS NULL
     `
@@ -56,10 +57,61 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*entity.User, 
 func (r *UserRepository) UpdateProfile(ctx context.Context, u *entity.User) error {
 	query := `
         UPDATE users
-        SET first_name=$2, last_name=$3, nickname=$4, phone=$5, avatar_url=$6, updated_at=now()
+        SET first_name=$2, last_name=$3, nickname=$4, phone=$5, avatar_url=$6, lang=$7, updated_at=now()
         WHERE id=$1 AND deleted_at IS NULL
     `
-	_, err := r.db.Exec(ctx, query, u.ID, u.FirstName, u.LastName, u.Nickname, u.Phone, u.AvatarURL)
+	_, err := r.db.Exec(ctx, query, u.ID, u.FirstName, u.LastName, u.Nickname, u.Phone, u.AvatarURL, u.Lang)
+	return err
+}
+
+func (r *UserRepository) GetLangsByIDs(ctx context.Context, ids []string) map[string]string {
+	result := make(map[string]string, len(ids))
+	if len(ids) == 0 {
+		return result
+	}
+	rows, err := r.db.Query(ctx, `SELECT id, lang FROM users WHERE id = ANY($1) AND deleted_at IS NULL`, ids)
+	if err != nil {
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, lang string
+		if rows.Scan(&id, &lang) == nil && lang != "" {
+			result[id] = lang
+		}
+	}
+	return result
+}
+
+func (r *UserRepository) GetNotificationPreferences(ctx context.Context, userID string) ([]string, error) {
+	var raw []byte
+	err := r.db.QueryRow(ctx,
+		`SELECT notification_preferences FROM users WHERE id=$1 AND deleted_at IS NULL`, userID,
+	).Scan(&raw)
+	if err != nil || raw == nil {
+		return nil, err
+	}
+	var p struct {
+		Disabled []string `json:"disabled"`
+	}
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return nil, nil
+	}
+	return p.Disabled, nil
+}
+
+func (r *UserRepository) SetNotificationPreferences(ctx context.Context, userID string, disabled []string) error {
+	type prefs struct {
+		Disabled []string `json:"disabled"`
+	}
+	data, err := json.Marshal(prefs{Disabled: disabled})
+	if err != nil {
+		return err
+	}
+	_, err = r.db.Exec(ctx,
+		`UPDATE users SET notification_preferences=$2, updated_at=now() WHERE id=$1 AND deleted_at IS NULL`,
+		userID, data,
+	)
 	return err
 }
 
@@ -105,7 +157,7 @@ func (r *UserRepository) AssignPlatformRole(ctx context.Context, userID, roleCod
 
 func (r *UserRepository) ListUsers(ctx context.Context, limit, offset int) ([]entity.User, error) {
 	rows, err := r.db.Query(ctx, `
-        SELECT id, first_name, last_name, email, phone, nickname, password_hash, avatar_url, is_blocked, created_at, updated_at, deleted_at
+        SELECT id, first_name, last_name, email, phone, nickname, password_hash, avatar_url, is_blocked, lang, notification_preferences, created_at, updated_at, deleted_at
         FROM users
         WHERE deleted_at IS NULL
         ORDER BY created_at DESC
@@ -237,6 +289,8 @@ func scanUser(row interface {
 		&u.PasswordHash,
 		&u.AvatarURL,
 		&u.IsBlocked,
+		&u.Lang,
+		&u.NotificationPreferences,
 		&u.CreatedAt,
 		&u.UpdatedAt,
 		&u.DeletedAt,

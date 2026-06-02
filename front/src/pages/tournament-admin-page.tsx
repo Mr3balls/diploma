@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Navigate, Link } from "react-router-dom";
-import { ArrowLeft, Settings, Users, FileSpreadsheet, Trophy, Swords, ClipboardList } from "lucide-react";
+import { ArrowLeft, Settings, Users, FileSpreadsheet, Trophy, Swords, ClipboardList, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { toast } from "sonner";
 import { Plus, Shuffle, Play, Trash2 } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -135,7 +135,130 @@ function StatusForm({
   );
 }
 
-function AdminCreateTeamForm({ tournamentId, t }: { tournamentId: string; t: (k: string, v?: Record<string, string | number>) => string }) {
+type TFn = (k: string, v?: Record<string, string | number>) => string;
+
+function ImportGuide({ t }: { t: TFn }) {
+  const [open, setOpen] = useState(false);
+
+  const columns: { col: string; label: string; req: boolean }[] = [
+    { col: "A", label: t("admin.import.guide.colA"), req: true },
+    { col: "B", label: t("admin.import.guide.colB"), req: false },
+    { col: "C", label: t("admin.import.guide.colC"), req: true },
+    { col: "D", label: t("admin.import.guide.colD"), req: false },
+    { col: "E", label: t("admin.import.guide.colE"), req: false },
+    { col: "F", label: t("admin.import.guide.colF"), req: false },
+    { col: "G", label: t("admin.import.guide.colG"), req: false },
+    { col: "H", label: t("admin.import.guide.colH"), req: false },
+  ];
+
+  const rules = [
+    t("admin.import.guide.rule1"),
+    t("admin.import.guide.rule2"),
+    t("admin.import.guide.rule3"),
+    t("admin.import.guide.rule4"),
+  ];
+
+  return (
+    <div className="rounded-xl border border-[#2d2d2d] bg-[#161616] overflow-hidden">
+      {/* Toggle header */}
+      <button
+        type="button"
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#1e1e1e] transition-colors"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <div className="flex items-center gap-2 text-sm font-medium text-[#9e9e9e]">
+          <Info className="h-4 w-4 shrink-0 text-[#ff5500]" />
+          {t("admin.import.guide.toggle")}
+        </div>
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-[#666666]" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-[#666666]" />
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-[#2d2d2d] px-4 py-4 grid gap-5">
+          {/* Access hint */}
+          <p className="text-xs text-[#9e9e9e] leading-relaxed">
+            {t("admin.import.guide.access")}
+          </p>
+          <p className="text-xs text-[#666666] leading-relaxed">
+            {t("admin.import.guide.header")}
+          </p>
+
+          {/* Columns table */}
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#666666]">
+              {t("admin.import.guide.colTitle")}
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-[#2d2d2d] text-left text-[#555]">
+                    <th className="pb-1.5 pr-4 font-medium">Столбец</th>
+                    <th className="pb-1.5 pr-4 font-medium">Содержимое</th>
+                    <th className="pb-1.5 font-medium">Статус</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {columns.map(({ col, label, req }) => (
+                    <tr key={col} className="border-b border-[#2d2d2d]/40">
+                      <td className="py-1.5 pr-4">
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[#2a2a2a] font-mono font-bold text-white">
+                          {col}
+                        </span>
+                      </td>
+                      <td className="py-1.5 pr-4 text-[#c0c0c0]">{label}</td>
+                      <td className="py-1.5">
+                        {req ? (
+                          <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-[#ff5500]/15 text-[#ff7733]">
+                            {t("admin.import.guide.required")}
+                          </span>
+                        ) : (
+                          <span className="rounded px-1.5 py-0.5 text-[10px] text-[#555]">
+                            {t("admin.import.guide.optional")}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Rules */}
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#666666]">
+              {t("admin.import.guide.rulesTitle")}
+            </p>
+            <ul className="space-y-1">
+              {rules.map((rule, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-[#9e9e9e]">
+                  <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#ff5500]/60" />
+                  {rule}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Example */}
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[#666666]">
+              {t("admin.import.guide.exampleTitle")}
+            </p>
+            <div className="rounded-lg border border-[#2d2d2d] bg-[#111] px-3 py-2 font-mono text-[11px] text-[#9e9e9e] overflow-x-auto whitespace-nowrap">
+              {t("admin.import.guide.exampleRow")}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminCreateTeamForm({ tournamentId, t }: { tournamentId: string; t: TFn }) {
   const [open, setOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [members, setMembers] = useState(["", "", "", "", ""]);
@@ -185,7 +308,8 @@ function AdminCreateTeamForm({ tournamentId, t }: { tournamentId: string; t: (k:
             {members.map((m, i) => (
               <div key={i} className="flex gap-2 md:max-w-sm">
                 <Input
-                  placeholder={i === 0 ? t("admin.captainSlot") : t("admin.captain", { n: i + 1 })}
+                  type="email"
+                  placeholder={i === 0 ? t("admin.captainEmailSlot") : t("admin.playerEmailSlot", { n: i + 1 })}
                   value={m}
                   onChange={(e) => setMembers((prev) => prev.map((x, j) => j === i ? e.target.value : x))}
                 />
@@ -691,8 +815,8 @@ export function TournamentAdminPage() {
     <div className="grid gap-0">
 
       {/* ── Banner ──────────────────────────────────────────────── */}
-      <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", background: "#111111", borderBottom: "1px solid #2d2d2d" }}>
-        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
+      <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", background: "#111111" }}>
+        <div className="mx-auto w-full max-w-7xl px-4 pt-8 pb-4 sm:px-6 lg:px-8 space-y-4">
           <Link to={`/tournaments/${id}`} className="inline-flex items-center gap-1.5 text-xs text-[#666666] hover:text-[#ff5500] transition-colors">
             <ArrowLeft className="h-3.5 w-3.5" /> {t("admin.backToTournament")}
           </Link>
@@ -713,9 +837,23 @@ export function TournamentAdminPage() {
               </div>
             )}
           </div>
+        </div>
+      </div>
 
-          {/* tab nav */}
-          <div className="flex gap-0 border-b border-[#2d2d2d] overflow-x-auto">
+      {/* ── Sticky tab nav ───────────────────────────────────────── */}
+      <div
+        className="sticky z-10"
+        style={{
+          top: "var(--navbar-h)",
+          width: "100vw",
+          marginLeft: "calc(50% - 50vw)",
+          background: "#111111",
+          borderTop: "1px solid #2d2d2d",
+          borderBottom: "1px solid #2d2d2d",
+        }}
+      >
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex gap-0 overflow-x-auto">
             {NAV.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -795,6 +933,7 @@ export function TournamentAdminPage() {
         <>
           {activeSection === "import" && <SectionCard title={t("admin.import.title")} description={t("admin.import.desc")}>
             <div className="grid gap-4">
+              <ImportGuide t={t} />
               <GoogleSheetForm
                 onConnect={handleConnectSheet}
                 onValidate={handleValidateSheet}

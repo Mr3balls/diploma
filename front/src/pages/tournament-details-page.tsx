@@ -377,8 +377,22 @@ export function TournamentDetailsPage() {
           </Card>
         )}
 
-        {/* tabs */}
-        <Tabs value={tab} onValueChange={setTab} tabs={tabs} variant="underline" />
+        {/* tabs - sticky under the main navbar */}
+        <div
+          className="sticky z-10"
+          style={{
+            top: "var(--navbar-h)",
+            width: "100vw",
+            marginLeft: "calc(50% - 50vw)",
+            background: "#111111",
+            borderTop: "1px solid #2d2d2d",
+            borderBottom: "1px solid #2d2d2d",
+          }}
+        >
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+            <Tabs value={tab} onValueChange={setTab} tabs={tabs} variant="underline" />
+          </div>
+        </div>
 
         {/* bracket */}
         {tab === "bracket" && (

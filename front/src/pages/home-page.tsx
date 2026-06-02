@@ -54,7 +54,7 @@ export function HomePage() {
           }}
         />
 
-        <div className="mx-auto w-full max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:py-24 sm:px-6 lg:px-8">
           <div className="grid gap-10 md:grid-cols-[1fr_auto] md:items-center">
             <div className="space-y-7 max-w-2xl">
               <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">
@@ -107,16 +107,16 @@ export function HomePage() {
       <ParallaxCarousel />
 
       {/* ── How it works ──────────────────────────────────────────── */}
-      <section className="py-20">
-        <div className="mb-12 text-center">
+      <section className="py-10 sm:py-20 border-t border-[#2d2d2d]">
+        <div className="mb-8 sm:mb-12 text-center">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">{t("home.how.label")}</p>
           <h2 className="text-3xl font-black uppercase text-white" style={{ letterSpacing: "-0.02em" }}>
             {t("home.how.title")}
           </h2>
         </div>
-        <div className="grid gap-px md:grid-cols-3 rounded-2xl overflow-hidden border border-[#2d2d2d]">
+        <div className="grid gap-px md:grid-cols-3 rounded-2xl overflow-hidden border border-[#2d2d2d] bg-[#2d2d2d]">
           {FEATURES.map((f, i) => (
-            <div key={f.title} className="bg-[#1a1a1a] p-8 space-y-4">
+            <div key={f.title} className="bg-[#1a1a1a] p-5 sm:p-8 space-y-4">
               <div className="flex items-center gap-3">
                 <span className="text-4xl font-black text-[#ff5500] leading-none">{String(i + 1).padStart(2, "0")}</span>
               </div>
@@ -128,8 +128,8 @@ export function HomePage() {
       </section>
 
       {/* ── Active tournaments ────────────────────────────────────── */}
-      <section className="pb-20 space-y-6">
-        <div className="flex items-end justify-between">
+      <section className="pb-12 sm:pb-20 space-y-6 border-t border-[#2d2d2d] pt-10 sm:pt-20">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-[#ff5500]">{t("home.active.label")}</p>
             <h2 className="text-2xl font-black uppercase text-white" style={{ letterSpacing: "-0.02em" }}>

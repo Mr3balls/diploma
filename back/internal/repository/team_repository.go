@@ -135,9 +135,14 @@ func (r *TeamRepository) GetMemberByID(ctx context.Context, id string) (*entity.
 
 func (r *TeamRepository) ListMembersByTeamID(ctx context.Context, teamID string) ([]entity.TeamMember, error) {
 	rows, err := r.db.Query(ctx, `
-        SELECT id, team_id, user_id, nickname, email, member_role, is_captain, is_substitute, confirmation_status, invited_at, responded_at, created_at, updated_at, deleted_at
-        FROM team_members WHERE team_id=$1 AND deleted_at IS NULL
-        ORDER BY is_captain DESC, is_substitute ASC, created_at ASC
+        SELECT tm.id, tm.team_id, tm.user_id, tm.nickname, tm.email, tm.member_role,
+               tm.is_captain, tm.is_substitute, tm.confirmation_status,
+               tm.invited_at, tm.responded_at, tm.created_at, tm.updated_at, tm.deleted_at,
+               COALESCE(u.lang, 'ru') AS user_lang
+        FROM team_members tm
+        LEFT JOIN users u ON u.id = tm.user_id AND u.deleted_at IS NULL
+        WHERE tm.team_id=$1 AND tm.deleted_at IS NULL
+        ORDER BY tm.is_captain DESC, tm.is_substitute ASC, tm.created_at ASC
     `, teamID)
 	if err != nil {
 		return nil, err
@@ -146,7 +151,10 @@ func (r *TeamRepository) ListMembersByTeamID(ctx context.Context, teamID string)
 	result := make([]entity.TeamMember, 0)
 	for rows.Next() {
 		var m entity.TeamMember
-		if err := rows.Scan(&m.ID, &m.TeamID, &m.UserID, &m.Nickname, &m.Email, &m.MemberRole, &m.IsCaptain, &m.IsSubstitute, &m.ConfirmationStatus, &m.InvitedAt, &m.RespondedAt, &m.CreatedAt, &m.UpdatedAt, &m.DeletedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.TeamID, &m.UserID, &m.Nickname, &m.Email, &m.MemberRole,
+			&m.IsCaptain, &m.IsSubstitute, &m.ConfirmationStatus,
+			&m.InvitedAt, &m.RespondedAt, &m.CreatedAt, &m.UpdatedAt, &m.DeletedAt,
+			&m.UserLang); err != nil {
 			return nil, err
 		}
 		result = append(result, m)

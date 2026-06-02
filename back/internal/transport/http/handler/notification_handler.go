@@ -99,3 +99,130 @@ func (h *NotificationHandler) Action(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "notification action recorded"})
 }
+
+// Delete soft-deletes a single notification.
+func (h *NotificationHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	userID := mustUserID(r)
+	if userID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	id := chi.URLParam(r, "id")
+	if err := h.deps.Notifications.Delete(r.Context(), userID, id); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "notification deleted"})
+}
+
+// DeleteAll soft-deletes all notifications for the current user.
+func (h *NotificationHandler) DeleteAll(w http.ResponseWriter, r *http.Request) {
+	userID := mustUserID(r)
+	if userID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	if err := h.deps.Notifications.DeleteAll(r.Context(), userID); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "all notifications deleted"})
+}
+
+// GetPreferences returns the list of disabled notification types for the user.
+func (h *NotificationHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
+	userID := mustUserID(r)
+	if userID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	disabled, err := h.deps.Notifications.GetPreferences(r.Context(), userID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string][]string{"disabled": disabled})
+}
+
+type setPreferencesRequest struct {
+	Disabled []string `json:"disabled"`
+}
+
+// SetPreferences updates the disabled notification types for the user.
+func (h *NotificationHandler) SetPreferences(w http.ResponseWriter, r *http.Request) {
+	userID := mustUserID(r)
+	if userID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	var req setPreferencesRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, err)
+		return
+	}
+	if req.Disabled == nil {
+		req.Disabled = []string{}
+	}
+	if err := h.deps.Notifications.SetPreferences(r.Context(), userID, req.Disabled); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "preferences updated"})
+}
+
+// GetVAPIDPublicKey returns the VAPID public key for Web Push subscription.
+func (h *NotificationHandler) GetVAPIDPublicKey(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"public_key": h.deps.Notifications.VAPIDPublicKey()})
+}
+
+type registerPushRequest struct {
+	Endpoint string `json:"endpoint"`
+	P256dh   string `json:"p256dh"`
+	Auth     string `json:"auth"`
+}
+
+// RegisterPush stores a Web Push subscription for the current user.
+func (h *NotificationHandler) RegisterPush(w http.ResponseWriter, r *http.Request) {
+	userID := mustUserID(r)
+	if userID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	var req registerPushRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, err)
+		return
+	}
+	if req.Endpoint == "" || req.P256dh == "" || req.Auth == "" {
+		writeError(w, apperror.BadRequest("invalid_body", "endpoint, p256dh and auth are required", nil))
+		return
+	}
+	if err := h.deps.Notifications.RegisterPush(r.Context(), userID, req.Endpoint, req.P256dh, req.Auth); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "push subscription registered"})
+}
+
+type unregisterPushRequest struct {
+	Endpoint string `json:"endpoint"`
+}
+
+// UnregisterPush removes a Web Push subscription.
+func (h *NotificationHandler) UnregisterPush(w http.ResponseWriter, r *http.Request) {
+	userID := mustUserID(r)
+	if userID == "" {
+		writeError(w, apperror.Unauthorized("missing auth context"))
+		return
+	}
+	var req unregisterPushRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, err)
+		return
+	}
+	if err := h.deps.Notifications.UnregisterPush(r.Context(), userID, req.Endpoint); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "push subscription removed"})
+}

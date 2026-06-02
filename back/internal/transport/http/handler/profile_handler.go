@@ -17,6 +17,7 @@ type updateProfileRequest struct {
 	Nickname  string  `json:"nickname" validate:"omitempty,min=2,max=50"`
 	Phone     string  `json:"phone" validate:"omitempty,phone_ru"`
 	AvatarURL *string `json:"avatar_url"`
+	Lang      string  `json:"lang" validate:"omitempty,oneof=ru en kk"`
 }
 
 func (h *ProfileHandler) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +49,7 @@ func (h *ProfileHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	user, err := h.deps.Users.UpdateMe(r.Context(), userID, service.UpdateProfileInput{FirstName: req.FirstName, LastName: req.LastName, Nickname: req.Nickname, Phone: req.Phone, AvatarURL: req.AvatarURL})
+	user, err := h.deps.Users.UpdateMe(r.Context(), userID, service.UpdateProfileInput{FirstName: req.FirstName, LastName: req.LastName, Nickname: req.Nickname, Phone: req.Phone, AvatarURL: req.AvatarURL, Lang: req.Lang})
 	if err != nil {
 		writeError(w, err)
 		return

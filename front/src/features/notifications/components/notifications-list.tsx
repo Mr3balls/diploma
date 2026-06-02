@@ -1,7 +1,7 @@
 import * as React from "react";
 import {
   Users, CheckCircle, XCircle, Swords, Clock,
-  Calendar, Trophy, Bell, Check,
+  Calendar, Trophy, Bell, Check, Trash2,
 } from "lucide-react";
 import type { Notification } from "@/shared/types/api";
 import { formatDateTime } from "@/shared/lib/date";
@@ -39,11 +39,13 @@ function NotificationIcon({ type }: { type: string }) {
 export function NotificationsList({
   items,
   onMarkRead,
+  onDelete,
   renderActions,
   markReadLabel = "Прочитано",
 }: {
   items: Notification[];
   onMarkRead: (id: string) => void;
+  onDelete?: (id: string) => void;
   renderActions?: (notification: Notification) => React.ReactNode;
   markReadLabel?: string;
 }) {
@@ -93,6 +95,14 @@ export function NotificationsList({
                 >
                   <Check className="h-3 w-3" />
                   {markReadLabel}
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(n.id)}
+                  className="ml-auto flex items-center gap-1 text-xs text-[#333] hover:text-[#ef4444] transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
                 </button>
               )}
             </div>

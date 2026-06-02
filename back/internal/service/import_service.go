@@ -10,6 +10,7 @@ import (
 
 	"esports-backend/internal/apperror"
 	"esports-backend/internal/entity"
+	"esports-backend/internal/pkg/notif"
 	"esports-backend/internal/pkg/xjson"
 	"esports-backend/internal/repository"
 
@@ -29,10 +30,11 @@ type ImportService struct {
 	notifications *repository.NotificationRepository
 	audits        *repository.AuditRepository
 	sheets        SheetsReader
+	email         *EmailService
 }
 
-func NewImportService(tournaments *TournamentService, imports *repository.ImportRepository, teams *repository.TeamRepository, users *repository.UserRepository, notifications *repository.NotificationRepository, audits *repository.AuditRepository, sheets SheetsReader) *ImportService {
-	return &ImportService{tournaments: tournaments, imports: imports, teams: teams, users: users, notifications: notifications, audits: audits, sheets: sheets}
+func NewImportService(tournaments *TournamentService, imports *repository.ImportRepository, teams *repository.TeamRepository, users *repository.UserRepository, notifications *repository.NotificationRepository, audits *repository.AuditRepository, sheets SheetsReader, email *EmailService) *ImportService {
+	return &ImportService{tournaments: tournaments, imports: imports, teams: teams, users: users, notifications: notifications, audits: audits, sheets: sheets, email: email}
 }
 
 type ConnectSheetInput struct {
@@ -144,7 +146,7 @@ func (s *ImportService) Preview(ctx context.Context, actorUserID, tournamentID s
 		return nil, nil, err
 	}
 
-	duplicateNickOwners := make(map[string]int)
+	duplicateEmailOwners := make(map[string]int)
 	parsedRows := make([]entity.ImportRow, 0)
 	hasHeader := false
 	if len(rows) > 0 {
@@ -164,9 +166,8 @@ func (s *ImportService) Preview(ctx context.Context, actorUserID, tournamentID s
 		rowCells := normalizeRow(rows[idx])
 		record := toImportRow(batch.ID, idx+1, rowCells)
 		errs := validateImportRow(record)
-		for _, nick := range nonEmptyMembers(record) {
-			lower := strings.ToLower(nick)
-			duplicateNickOwners[lower]++
+		for _, email := range nonEmptyMembers(record) {
+			duplicateEmailOwners[strings.ToLower(email)]++
 		}
 		record.ValidationErrorsJSON = xjson.MustMarshal(errs)
 		if len(errs) == 0 {
@@ -184,15 +185,15 @@ func (s *ImportService) Preview(ctx context.Context, actorUserID, tournamentID s
 	}
 
 	duplicateList := make([]string, 0)
-	for nick, count := range duplicateNickOwners {
+	for nick, count := range duplicateEmailOwners {
 		if count > 1 {
 			duplicateList = append(duplicateList, nick)
 		}
 	}
 	for i := range parsedRows {
-		if rowHasDuplicateNick(parsedRows[i], duplicateNickOwners) {
+		if rowHasDuplicateNick(parsedRows[i], duplicateEmailOwners) {
 			parsedRows[i].Status = entity.ImportRowStatusDuplicate
-			parsedRows[i].ValidationErrorsJSON = appendValidation(parsedRows[i].ValidationErrorsJSON, "duplicate player nickname across teams in same tournament")
+			parsedRows[i].ValidationErrorsJSON = appendValidation(parsedRows[i].ValidationErrorsJSON, "duplicate player email across teams in same import")
 			if err := s.imports.UpdateRowStatus(ctx, parsedRows[i].ID, parsedRows[i].Status); err != nil {
 				return nil, nil, err
 			}
@@ -252,55 +253,70 @@ func (s *ImportService) Confirm(ctx context.Context, actorUserID, tournamentID, 
 		if err := s.teams.CreateTeam(ctx, team); err != nil {
 			return nil, err
 		}
+		tournament, _ := s.tournaments.GetTournament(ctx, tournamentID)
 		memberSpecs := []struct {
-			Nick       string
+			Email      string
 			Role       string
 			IsCaptain  bool
 			Substitute bool
 		}{
-			{Nick: row.CaptainNick, Role: entity.MemberRoleCaptain, IsCaptain: true},
-			{Nick: row.Player2Nick, Role: entity.MemberRolePlayer},
-			{Nick: row.Player3Nick, Role: entity.MemberRolePlayer},
-			{Nick: row.Player4Nick, Role: entity.MemberRolePlayer},
-			{Nick: row.Player5Nick, Role: entity.MemberRolePlayer},
-			{Nick: row.SubstituteNick, Role: entity.MemberRoleSubstitute, Substitute: true},
+			{Email: row.CaptainNick, Role: entity.MemberRoleCaptain, IsCaptain: true},
+			{Email: row.Player2Nick, Role: entity.MemberRolePlayer},
+			{Email: row.Player3Nick, Role: entity.MemberRolePlayer},
+			{Email: row.Player4Nick, Role: entity.MemberRolePlayer},
+			{Email: row.Player5Nick, Role: entity.MemberRolePlayer},
+			{Email: row.SubstituteNick, Role: entity.MemberRoleSubstitute, Substitute: true},
 		}
 		for _, spec := range memberSpecs {
-			if strings.TrimSpace(spec.Nick) == "" {
+			memberEmail := strings.TrimSpace(spec.Email)
+			if memberEmail == "" {
 				continue
 			}
+			nickname := emailPrefix(memberEmail)
+			storedEmail := memberEmail
 			member := &entity.TeamMember{
 				ID:                 uuid.NewString(),
 				TeamID:             team.ID,
-				Nickname:           spec.Nick,
+				Nickname:           nickname,
+				Email:              &storedEmail,
 				MemberRole:         spec.Role,
 				IsCaptain:          spec.IsCaptain,
 				IsSubstitute:       spec.Substitute,
 				ConfirmationStatus: entity.MemberConfirmationNotFound,
 				InvitedAt:          ptrTime(time.Now()),
 			}
-			matchedUser, err := s.users.GetByNickname(ctx, spec.Nick)
+			matchedUser, err := s.users.GetByEmail(ctx, memberEmail)
 			if err == nil {
 				member.UserID = &matchedUser.ID
+				member.Nickname = matchedUser.Nickname
+				if member.Nickname == "" {
+					member.Nickname = nickname
+				}
 				member.ConfirmationStatus = entity.MemberConfirmationPendingConfirmation
-			} else if err != nil && err != pgx.ErrNoRows {
+			} else if err != pgx.ErrNoRows {
 				return nil, err
 			}
 			if err := s.teams.CreateMember(ctx, member); err != nil {
 				return nil, err
 			}
-			if member.UserID != nil {
+			// Send email invite to everyone (even if not registered yet).
+			if !spec.IsCaptain && tournament != nil {
+				go s.email.SendTeamInvite(memberEmail, team.Name, tournament.Title)
+			}
+			// Send in-app notification only for registered users.
+			if member.UserID != nil && !spec.IsCaptain {
+				lang := matchedUser.Lang
+				texts := notif.AddedToTeam(lang, team.Name)
 				payload := map[string]string{"team_id": team.ID, "team_member_id": member.ID, "team_name": team.Name, "tournament_id": tournamentID}
-				notification := &entity.Notification{
+				if err := s.notifications.Create(ctx, &entity.Notification{
 					ID:                uuid.NewString(),
 					UserID:            *member.UserID,
 					Type:              entity.NotificationAddedToTeam,
-					Title:             "Вас добавили в команду",
-					Message:           fmt.Sprintf("Подтвердите участие в команде %s", team.Name),
+					Title:             texts.Title,
+					Message:           texts.Message,
 					PayloadJSON:       xjson.MustMarshal(payload),
 					ActionPayloadJSON: xjson.MustMarshal(payload),
-				}
-				if err := s.notifications.Create(ctx, notification); err != nil {
+				}); err != nil {
 					return nil, err
 				}
 			}
@@ -392,22 +408,37 @@ func toImportRow(batchID string, rowNumber int, cells []string) entity.ImportRow
 	}
 }
 
+func isValidEmail(s string) bool {
+	at := strings.Index(s, "@")
+	return at > 0 && strings.Contains(s[at:], ".")
+}
+
 func validateImportRow(row entity.ImportRow) []string {
 	errs := make([]string, 0)
 	if row.TeamName == "" {
 		errs = append(errs, "team_name is required")
 	}
 	if row.CaptainNick == "" {
-		errs = append(errs, "captain_nick is required")
+		errs = append(errs, "captain_email is required")
+	} else if !isValidEmail(row.CaptainNick) {
+		errs = append(errs, "captain_email is not a valid email address")
 	}
 	players := 0
-	for _, nick := range []string{row.CaptainNick, row.Player2Nick, row.Player3Nick, row.Player4Nick, row.Player5Nick} {
-		if strings.TrimSpace(nick) != "" {
-			players++
+	for _, email := range []string{row.CaptainNick, row.Player2Nick, row.Player3Nick, row.Player4Nick, row.Player5Nick} {
+		if e := strings.TrimSpace(email); e != "" {
+			if !isValidEmail(e) {
+				errs = append(errs, fmt.Sprintf("invalid email: %s", e))
+			} else {
+				players++
+			}
 		}
 	}
 	if players < 4 {
 		errs = append(errs, "at least 4 main players including captain are required")
+	}
+	// validate optional substitute email
+	if sub := strings.TrimSpace(row.SubstituteNick); sub != "" && !isValidEmail(sub) {
+		errs = append(errs, fmt.Sprintf("invalid substitute email: %s", sub))
 	}
 	return errs
 }

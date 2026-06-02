@@ -17,6 +17,7 @@ type Deps struct {
 	Brackets      *service.BracketService
 	Matches       *service.MatchService
 	Notifications *service.NotificationService
+	Push          *service.PushService
 	Audits        *service.AuditService
 	Admin         *service.AdminService
 	Challonge     *service.ChallongeService

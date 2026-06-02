@@ -8,6 +8,7 @@ import (
 	"esports-backend/internal/apperror"
 	"esports-backend/internal/bracket"
 	"esports-backend/internal/entity"
+	"esports-backend/internal/pkg/notif"
 	"esports-backend/internal/pkg/xjson"
 	"esports-backend/internal/repository"
 
@@ -254,12 +255,13 @@ func (s *BracketService) notifyMatchAssigned(tournamentID string, matches []enti
 				if member.UserID == nil {
 					continue
 				}
+				texts := notif.MatchAssigned(member.UserLang)
 				_ = s.notifications.Create(ctx, &entity.Notification{
 					ID:          uuid.NewString(),
 					UserID:      *member.UserID,
 					Type:        entity.NotificationMatchAssigned,
-					Title:       "Матч назначен",
-					Message:     "Сетка турнира сформирована. Ваша команда получила соперника.",
+					Title:       texts.Title,
+					Message:     texts.Message,
 					PayloadJSON: payload,
 				})
 			}
@@ -927,12 +929,13 @@ func (s *BracketService) finishTournament(ctx context.Context, tournamentID stri
 		members, _ := s.teams.ListMembersByTeamID(ctx, team.ID)
 		for _, member := range members {
 			if member.UserID != nil {
+				texts := notif.TournamentFinished(member.UserLang)
 				_ = s.notifications.Create(ctx, &entity.Notification{
 					ID:      uuid.NewString(),
 					UserID:  *member.UserID,
 					Type:    entity.NotificationTournamentFinished,
-					Title:   "Турнир завершен",
-					Message: "Турнир завершен. Финальный результат зафиксирован.",
+					Title:   texts.Title,
+					Message: texts.Message,
 					PayloadJSON: xjson.MustMarshal(map[string]string{
 						"tournament_id": tournamentID,
 					}),

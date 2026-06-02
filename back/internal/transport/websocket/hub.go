@@ -133,6 +133,11 @@ func (h *Hub) ServeUserSSE(w http.ResponseWriter, r *http.Request, userID string
 		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
+	// Disable the server's WriteTimeout for this long-lived SSE connection.
+	// Without this the default 20s WriteTimeout kills the stream.
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -206,6 +211,9 @@ func (h *Hub) ServeChatSSE(w http.ResponseWriter, r *http.Request, tournamentID 
 		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -247,6 +255,8 @@ func (h *Hub) ServeSSE(w http.ResponseWriter, r *http.Request, slug string) {
 		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")

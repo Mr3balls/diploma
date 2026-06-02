@@ -8,6 +8,7 @@ import (
 
 	"esports-backend/internal/apperror"
 	"esports-backend/internal/entity"
+	"esports-backend/internal/pkg/notif"
 	"esports-backend/internal/pkg/xjson"
 	"esports-backend/internal/repository"
 
@@ -122,10 +123,12 @@ func (s *TeamService) RegisterTeam(ctx context.Context, tournamentID string, in 
 			continue
 		}
 		var userID *string
+		var userLang string
 		nickname := emailPrefix(memberEmail)
 		storedEmail := memberEmail
 		if u, err := s.users.GetByEmail(ctx, memberEmail); err == nil {
 			userID = &u.ID
+			userLang = u.Lang
 			if u.Nickname != "" {
 				nickname = u.Nickname
 			} else if u.FirstName != "" {
@@ -151,11 +154,12 @@ func (s *TeamService) RegisterTeam(ctx context.Context, tournamentID string, in 
 		}
 		if userID != nil {
 			payload := map[string]string{"team_id": team.ID, "team_member_id": member.ID, "tournament_id": tournamentID}
+			texts := notif.AddedToTeam(userLang, team.Name)
 			_ = s.notifications.Create(ctx, &entity.Notification{
 				ID: uuid.NewString(), UserID: *userID,
 				Type:              entity.NotificationAddedToTeam,
-				Title:             "Вас добавили в команду",
-				Message:           fmt.Sprintf("Подтвердите участие в команде «%s»", team.Name),
+				Title:             texts.Title,
+				Message:           texts.Message,
 				PayloadJSON:       xjson.MustMarshal(payload),
 				ActionPayloadJSON: xjson.MustMarshal(payload),
 			})
@@ -214,10 +218,12 @@ func (s *TeamService) AdminCreateTeam(ctx context.Context, tournamentID string, 
 			continue
 		}
 		var userID *string
+		var userLang string
 		nickname := emailPrefix(memberEmail)
 		storedEmail := memberEmail
 		if u, err := s.users.GetByEmail(ctx, memberEmail); err == nil {
 			userID = &u.ID
+			userLang = u.Lang
 			if u.Nickname != "" {
 				nickname = u.Nickname
 			} else if u.FirstName != "" {
@@ -246,16 +252,24 @@ func (s *TeamService) AdminCreateTeam(ctx context.Context, tournamentID string, 
 		if err := s.teams.CreateMember(ctx, member); err != nil {
 			return nil, err
 		}
-		if userID != nil && !isCaptain {
-			payload := map[string]string{"team_id": team.ID, "team_member_id": member.ID, "tournament_id": tournamentID}
-			_ = s.notifications.Create(ctx, &entity.Notification{
-				ID: uuid.NewString(), UserID: *userID,
-				Type:              entity.NotificationAddedToTeam,
-				Title:             "Вас добавили в команду",
-				Message:           fmt.Sprintf("Подтвердите участие в команде «%s»", in.TeamName),
-				PayloadJSON:       xjson.MustMarshal(payload),
-				ActionPayloadJSON: xjson.MustMarshal(payload),
-			})
+		if !isCaptain {
+			// Always send an email invite so the person knows they've been added
+			// (works even if they don't have an account yet).
+			go s.email.SendTeamInvite(memberEmail, team.Name, tournament.Title)
+
+			// If the user has an account, also send an in-app notification.
+			if userID != nil {
+				payload := map[string]string{"team_id": team.ID, "team_member_id": member.ID, "tournament_id": tournamentID}
+				texts := notif.AddedToTeam(userLang, in.TeamName)
+				_ = s.notifications.Create(ctx, &entity.Notification{
+					ID: uuid.NewString(), UserID: *userID,
+					Type:              entity.NotificationAddedToTeam,
+					Title:             texts.Title,
+					Message:           texts.Message,
+					PayloadJSON:       xjson.MustMarshal(payload),
+					ActionPayloadJSON: xjson.MustMarshal(payload),
+				})
+			}
 		}
 	}
 
@@ -340,12 +354,14 @@ func (s *TeamService) ApproveTeam(ctx context.Context, actorUserID, teamID strin
 	payload := map[string]string{"team_id": teamID, "tournament_id": details.Team.TournamentID}
 	for _, m := range details.Members {
 		if m.UserID != nil {
+			texts := notif.TeamApproved(m.UserLang, details.Team.Name)
 			_ = s.notifications.Create(ctx, &entity.Notification{
 				ID: uuid.NewString(), UserID: *m.UserID,
-				Type:    entity.NotificationTeamParticipationConfirm,
-				Title:   "Команда одобрена",
-				Message: fmt.Sprintf("Ваша команда «%s» подтверждена и допущена к турниру.", details.Team.Name),
-				PayloadJSON: xjson.MustMarshal(payload), ActionPayloadJSON: xjson.MustMarshal(payload),
+				Type:              entity.NotificationTeamParticipationConfirm,
+				Title:             texts.Title,
+				Message:           texts.Message,
+				PayloadJSON:       xjson.MustMarshal(payload),
+				ActionPayloadJSON: xjson.MustMarshal(payload),
 			})
 		}
 	}
@@ -372,12 +388,14 @@ func (s *TeamService) RejectTeam(ctx context.Context, actorUserID, teamID string
 	payload := map[string]string{"team_id": teamID, "tournament_id": details.Team.TournamentID}
 	for _, m := range details.Members {
 		if m.UserID != nil {
+			texts := notif.TeamDeclined(m.UserLang, details.Team.Name, reason)
 			_ = s.notifications.Create(ctx, &entity.Notification{
 				ID: uuid.NewString(), UserID: *m.UserID,
-				Type:    entity.NotificationTeamParticipationDecline,
-				Title:   "Команда отклонена",
-				Message: fmt.Sprintf("Ваша команда «%s» была отклонена. Причина: %s", details.Team.Name, reason),
-				PayloadJSON: xjson.MustMarshal(payload), ActionPayloadJSON: xjson.MustMarshal(payload),
+				Type:              entity.NotificationTeamParticipationDecline,
+				Title:             texts.Title,
+				Message:           texts.Message,
+				PayloadJSON:       xjson.MustMarshal(payload),
+				ActionPayloadJSON: xjson.MustMarshal(payload),
 			})
 		}
 	}
@@ -417,9 +435,11 @@ func (s *TeamService) ReplaceMember(ctx context.Context, actorUserID, teamID, me
 	}
 
 	var userID *string
+	var userLang string
 	nickname := emailPrefix(in.Email)
 	if matchedUser, err := s.users.GetByEmail(ctx, in.Email); err == nil {
 		userID = &matchedUser.ID
+		userLang = matchedUser.Lang
 		if matchedUser.Nickname != "" {
 			nickname = matchedUser.Nickname
 		} else if matchedUser.FirstName != "" {
@@ -432,7 +452,15 @@ func (s *TeamService) ReplaceMember(ctx context.Context, actorUserID, teamID, me
 	}
 	if userID != nil {
 		payload := map[string]string{"team_id": teamID, "team_member_id": memberID, "tournament_id": details.Team.TournamentID}
-		_ = s.notifications.Create(ctx, &entity.Notification{ID: uuid.NewString(), UserID: *userID, Type: entity.NotificationAddedToTeam, Title: "Вас добавили в команду", Message: fmt.Sprintf("Подтвердите участие в команде %s", details.Team.Name), PayloadJSON: xjson.MustMarshal(payload), ActionPayloadJSON: xjson.MustMarshal(payload)})
+		texts := notif.AddedToTeam(userLang, details.Team.Name)
+		_ = s.notifications.Create(ctx, &entity.Notification{
+			ID: uuid.NewString(), UserID: *userID,
+			Type:              entity.NotificationAddedToTeam,
+			Title:             texts.Title,
+			Message:           texts.Message,
+			PayloadJSON:       xjson.MustMarshal(payload),
+			ActionPayloadJSON: xjson.MustMarshal(payload),
+		})
 	}
 	return nil
 }

@@ -22,6 +22,7 @@ type UpdateProfileInput struct {
 	Nickname  string
 	Phone     string
 	AvatarURL *string
+	Lang      string
 }
 
 func (s *UserService) GetMe(ctx context.Context, userID string) (*entity.User, error) {
@@ -51,6 +52,9 @@ func (s *UserService) UpdateMe(ctx context.Context, userID string, in UpdateProf
 		user.Phone = in.Phone
 	}
 	user.AvatarURL = in.AvatarURL
+	if in.Lang != "" {
+		user.Lang = in.Lang
+	}
 	if err := s.users.UpdateProfile(ctx, user); err != nil {
 		return nil, err
 	}

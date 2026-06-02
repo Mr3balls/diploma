@@ -37,8 +37,8 @@ export function ImportPreviewTable({
             <TableRow>
               <TableHead>Статус</TableHead>
               <TableHead>Команда</TableHead>
-              <TableHead>Капитан</TableHead>
-              <TableHead>Игроки</TableHead>
+              <TableHead>Email капитана</TableHead>
+              <TableHead>Email игроков</TableHead>
               <TableHead>Ошибки</TableHead>
             </TableRow>
           </TableHeader>
@@ -55,8 +55,8 @@ export function ImportPreviewTable({
                     <Badge tone={rowTone(row.status)}>{importRowStatusLabel[row.status]}</Badge>
                   </TableCell>
                   <TableCell>{row.team_name || "—"}</TableCell>
-                  <TableCell>{row.captain_nick || "—"}</TableCell>
-                  <TableCell>{players || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{row.captain_nick || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{players || "—"}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       {errors.length

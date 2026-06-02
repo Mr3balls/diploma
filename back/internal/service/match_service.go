@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"esports-backend/internal/apperror"
 	"esports-backend/internal/entity"
+	"esports-backend/internal/pkg/notif"
 	"esports-backend/internal/pkg/xjson"
 	"esports-backend/internal/repository"
 
@@ -57,7 +57,7 @@ func (s *MatchService) Schedule(ctx context.Context, actorUserID, matchID string
 	if err := s.brackets.UpdateMatchState(ctx, match); err != nil {
 		return err
 	}
-	if err := s.notifyMatchTeams(ctx, match, entity.NotificationMatchTimeChanged, "Время матча обновлено", "Менеджер обновил данные матча"); err != nil {
+	if err := s.notifyMatchTeams(ctx, match, entity.NotificationMatchTimeChanged, notif.MatchTimeChanged); err != nil {
 		return err
 	}
 	if in.ScheduledAt != nil {
@@ -78,15 +78,15 @@ func (s *MatchService) Schedule(ctx context.Context, actorUserID, matchID string
 }
 
 func (s *MatchService) ConfirmReady(ctx context.Context, actorUserID, matchID string) error {
-	return s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationReadyConfirmed, entity.MatchStatusConfirmed, entity.NotificationMatchAssigned, "Готовность подтверждена")
+	return s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationReadyConfirmed, entity.MatchStatusConfirmed, entity.NotificationMatchAssigned, notif.MatchAssigned)
 }
 
 func (s *MatchService) RequestReschedule(ctx context.Context, actorUserID, matchID string) error {
-	return s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationRescheduleRequested, entity.MatchStatusRescheduleRequested, entity.NotificationMatchRescheduled, "Запрошен перенос матча")
+	return s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationRescheduleRequested, entity.MatchStatusRescheduleRequested, entity.NotificationMatchRescheduled, notif.MatchRescheduled)
 }
 
 func (s *MatchService) ReportIssue(ctx context.Context, actorUserID, matchID string) error {
-	return s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationIssueReported, entity.MatchStatusIssueReported, entity.NotificationMatchCancelled, "По матчу сообщено о проблеме")
+	return s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationIssueReported, entity.MatchStatusIssueReported, entity.NotificationMatchCancelled, notif.MatchCancelled)
 }
 
 func (s *MatchService) SubmitResult(ctx context.Context, actorUserID, matchID string, in SubmitResultInput) error {
@@ -112,7 +112,7 @@ func (s *MatchService) SubmitResult(ctx context.Context, actorUserID, matchID st
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "result_submitted", Description: "Match result submitted", MetadataJSON: xjson.MustMarshal(in)})
-	return s.notifyManagers(ctx, match.TournamentID, entity.NotificationResultSubmitted, "Результат матча отправлен", fmt.Sprintf("По матчу %s отправлен результат на подтверждение", match.ID))
+	return s.notifyManagers(ctx, match.TournamentID, entity.NotificationResultSubmitted, notif.ResultSubmitted)
 }
 
 type AdminSetResultInput struct {
@@ -146,7 +146,7 @@ func (s *MatchService) AdminSetResult(ctx context.Context, actorUserID, matchID 
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "admin_set_result", Description: "Admin directly set match result", MetadataJSON: xjson.MustMarshal(map[string]string{"winner_team_id": in.WinnerTeamID})})
-	if err := s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, "Победитель матча установлен", "Менеджер установил победителя матча"); err != nil {
+	if err := s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, notif.ResultConfirmed); err != nil {
 		return err
 	}
 	s.sendResultConfirmedEmail(ctx, match)
@@ -176,7 +176,7 @@ func (s *MatchService) ApproveResult(ctx context.Context, actorUserID, matchID s
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "result_approved", Description: "Match result approved", MetadataJSON: xjson.MustMarshal(map[string]string{"winner_team_id": *match.WinnerTeamID})})
-	if err := s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, "Результат матча подтвержден", "Менеджер подтвердил результат матча"); err != nil {
+	if err := s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, notif.ResultConfirmed); err != nil {
 		return err
 	}
 	s.sendResultConfirmedEmail(ctx, match)
@@ -202,7 +202,7 @@ func (s *MatchService) RejectResult(ctx context.Context, actorUserID, matchID st
 	return s.brackets.UpdateMatchState(ctx, match)
 }
 
-func (s *MatchService) updateTeamConfirmation(ctx context.Context, actorUserID, matchID, teamStatus, matchStatus, notificationType, message string) error {
+func (s *MatchService) updateTeamConfirmation(ctx context.Context, actorUserID, matchID, teamStatus, matchStatus, notificationType string, textsFunc func(string) notif.Texts) error {
 	match, err := s.brackets.GetMatchByID(ctx, matchID)
 	if err != nil {
 		return apperror.NotFound("match not found")
@@ -227,8 +227,9 @@ func (s *MatchService) updateTeamConfirmation(ctx context.Context, actorUserID, 
 	if err := s.brackets.UpdateMatchState(ctx, match); err != nil {
 		return err
 	}
-	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "match_confirmation_updated", Description: message, MetadataJSON: xjson.MustMarshal(map[string]string{"team_status": teamStatus})})
-	return s.notifyManagers(ctx, match.TournamentID, notificationType, message, message)
+	desc := textsFunc("ru").Title
+	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "match_confirmation_updated", Description: desc, MetadataJSON: xjson.MustMarshal(map[string]string{"team_status": teamStatus})})
+	return s.notifyManagers(ctx, match.TournamentID, notificationType, textsFunc)
 }
 
 func (s *MatchService) findCaptainsTeamInMatch(ctx context.Context, userID string, match *entity.Match) (string, error) {
@@ -252,18 +253,21 @@ func (s *MatchService) userCaptainsTeamInMatch(ctx context.Context, userID strin
 	return teamID != "", nil
 }
 
-func (s *MatchService) notifyManagers(ctx context.Context, tournamentID, typ, title, message string) error {
+func (s *MatchService) notifyManagers(ctx context.Context, tournamentID, typ string, textsFunc func(string) notif.Texts) error {
 	userIDs, err := s.tournaments.tournaments.ListUserIDsByRoles(ctx, tournamentID, []string{entity.TournamentRoleOwner, entity.TournamentRoleManager})
 	if err != nil {
 		return err
 	}
+	langs := s.users.GetLangsByIDs(ctx, userIDs)
 	for _, userID := range userIDs {
+		lang := langs[userID]
+		texts := textsFunc(lang)
 		notification := &entity.Notification{
 			ID:          uuid.NewString(),
 			UserID:      userID,
 			Type:        typ,
-			Title:       title,
-			Message:     message,
+			Title:       texts.Title,
+			Message:     texts.Message,
 			PayloadJSON: xjson.MustMarshal(map[string]string{"tournament_id": tournamentID}),
 		}
 		if err := s.notifications.Create(ctx, notification); err != nil {
@@ -273,7 +277,7 @@ func (s *MatchService) notifyManagers(ctx context.Context, tournamentID, typ, ti
 	return nil
 }
 
-func (s *MatchService) notifyMatchTeams(ctx context.Context, match *entity.Match, typ, title, message string) error {
+func (s *MatchService) notifyMatchTeams(ctx context.Context, match *entity.Match, typ string, textsFunc func(string) notif.Texts) error {
 	for _, teamID := range []*string{match.Team1ID, match.Team2ID} {
 		if teamID == nil {
 			continue
@@ -286,7 +290,8 @@ func (s *MatchService) notifyMatchTeams(ctx context.Context, match *entity.Match
 			if member.UserID == nil {
 				continue
 			}
-			notification := &entity.Notification{ID: uuid.NewString(), UserID: *member.UserID, Type: typ, Title: title, Message: message, PayloadJSON: xjson.MustMarshal(map[string]string{"match_id": match.ID, "tournament_id": match.TournamentID})}
+			texts := textsFunc(member.UserLang)
+			notification := &entity.Notification{ID: uuid.NewString(), UserID: *member.UserID, Type: typ, Title: texts.Title, Message: texts.Message, PayloadJSON: xjson.MustMarshal(map[string]string{"match_id": match.ID, "tournament_id": match.TournamentID})}
 			if err := s.notifications.Create(ctx, notification); err != nil {
 				return err
 			}

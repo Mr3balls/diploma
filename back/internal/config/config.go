@@ -27,6 +27,9 @@ type Config struct {
 	SMTPUser                 string
 	SMTPPassword             string
 	SMTPFrom                 string
+	VAPIDPublicKey           string
+	VAPIDPrivateKey          string
+	VAPIDEmail               string
 }
 
 func Load() (*Config, error) {
@@ -50,6 +53,9 @@ func Load() (*Config, error) {
 		SMTPUser:                 getEnvAllowEmpty("SMTP_USER", ""),
 		SMTPPassword:             getEnvAllowEmpty("SMTP_PASSWORD", ""),
 		SMTPFrom:                 getEnvAllowEmpty("SMTP_FROM", ""),
+		VAPIDPublicKey:           getEnvAllowEmpty("VAPID_PUBLIC_KEY", ""),
+		VAPIDPrivateKey:          getEnvAllowEmpty("VAPID_PRIVATE_KEY", ""),
+		VAPIDEmail:               getEnvAllowEmpty("VAPID_EMAIL", ""),
 	}
 
 	if cfg.AccessTokenSecret == "" {

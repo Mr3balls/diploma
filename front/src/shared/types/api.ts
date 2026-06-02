@@ -114,6 +114,10 @@ export type TokenPair = {
   refresh_token: string;
 };
 
+export type NotificationPreferences = {
+  disabled: NotificationType[];
+};
+
 export type User = {
   id: string;
   email: string;
@@ -121,6 +125,8 @@ export type User = {
   first_name?: string | null;
   last_name?: string | null;
   phone?: string | null;
+  lang?: string;
+  notification_preferences?: NotificationPreferences;
   role?: "player" | "platform_admin" | string;
   is_blocked?: boolean;
   is_platform_admin?: boolean;

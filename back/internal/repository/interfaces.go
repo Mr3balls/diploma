@@ -46,6 +46,8 @@ type UserStore interface {
 	SoftDelete(ctx context.Context, id string) error
 	AssignPlatformRole(ctx context.Context, userID, roleCode string) error
 	GetPlatformRoles(ctx context.Context, userID string) ([]string, error)
+	// GetLangsByIDs returns a map of userID → lang for the given IDs (default "ru" for unknown).
+	GetLangsByIDs(ctx context.Context, ids []string) map[string]string
 }
 
 type SessionStore interface {

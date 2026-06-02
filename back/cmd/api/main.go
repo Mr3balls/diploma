@@ -66,6 +66,7 @@ func main() {
 	bracketRepo := repository.NewBracketRepository(pg)
 	groupRepo := repository.NewGroupRepository(pg)
 	notificationRepo := repository.NewNotificationRepository(pg)
+	pushSubRepo := repository.NewPushSubscriptionRepository(pg)
 	auditRepo := repository.NewAuditRepository(pg)
 	chatRepo := repository.NewChatRepository(pg)
 
@@ -88,8 +89,9 @@ func main() {
 	tournamentService := service.NewTournamentService(tournamentRepo, teamRepo, bracketRepo, auditRepo)
 	authService := service.NewAuthService(cfg, userRepo, sessionRepo, auditRepo, emailService, teamRepo, notificationRepo)
 	userService := service.NewUserService(userRepo)
-	importService := service.NewImportService(tournamentService, importRepo, teamRepo, userRepo, notificationRepo, auditRepo, sheetsReader)
-	notificationService := service.NewNotificationService(notificationRepo)
+	importService := service.NewImportService(tournamentService, importRepo, teamRepo, userRepo, notificationRepo, auditRepo, sheetsReader, emailService)
+	pushService := service.NewPushService(pushSubRepo, cfg.VAPIDPrivateKey, cfg.VAPIDPublicKey, cfg.VAPIDEmail)
+	notificationService := service.NewNotificationService(notificationRepo, userRepo, pushService)
 	bracketService := service.NewBracketService(pg, tournamentService, bracketRepo, groupRepo, teamRepo, participantRepo, notificationRepo, auditRepo)
 	matchService := service.NewMatchService(tournamentService, bracketRepo, groupRepo, teamRepo, userRepo, notificationRepo, auditRepo, bracketService, emailService)
 	teamService := service.NewTeamService(tournamentService, teamRepo, userRepo, notificationRepo, auditRepo, emailService)
@@ -99,6 +101,7 @@ func main() {
 	// SSE hub (shared for tournament brackets, user notifications, and chat)
 	hub := ws.NewHub()
 	notificationRepo.WithBroadcaster(hub)
+	notificationRepo.WithPushSender(pushService)
 
 	chatService := service.NewChatService(chatRepo, tournamentRepo)
 	chatService.WithBroadcaster(hub)
@@ -119,6 +122,7 @@ func main() {
 		Brackets:      bracketService,
 		Matches:       matchService,
 		Notifications: notificationService,
+		Push:          pushService,
 		Audits:        auditService,
 		Admin:         adminService,
 		Challonge:     challongeService,

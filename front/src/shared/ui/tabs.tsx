@@ -13,7 +13,7 @@ export function Tabs({
 }) {
   if (variant === "underline") {
     return (
-      <div className="flex gap-0 border-b border-[#2d2d2d]">
+      <div className="flex gap-0 border-b border-[#2d2d2d] overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.value}

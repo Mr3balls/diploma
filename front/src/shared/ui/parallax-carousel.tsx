@@ -74,6 +74,7 @@ export function ParallaxCarousel() {
         marginLeft: "calc(50% - 50vw)",
         overflow: "hidden",
         padding: "80px 0 88px",
+        borderBottom: "1px solid #2d2d2d",
       }}
     >
       <div style={{ textAlign: "center", marginBottom: 52, padding: "0 16px" }}>

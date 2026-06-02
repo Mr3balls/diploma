@@ -61,7 +61,8 @@ func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Ha
 	r.Get("/tournaments/{id}/matches", tournamentHandler.GetPublicMatches)
 	r.Get("/tournaments/{id}/participants", tournamentHandler.GetParticipants)
 	r.Get("/teams/{id}", teamHandler.GetTeam)
-	r.Get("/notifications/stream", notificationHandler.Stream)          // SSE, auth via ?token=
+	r.Get("/notifications/stream", notificationHandler.Stream)           // SSE, auth via ?token=
+	r.Get("/notifications/vapid-public-key", notificationHandler.GetVAPIDPublicKey) // public VAPID key
 	r.Get("/tournaments/{id}/chat/stream", chatHandler.Stream)          // SSE, auth via ?token=
 
 	r.Group(func(pr chi.Router) {
@@ -131,6 +132,12 @@ func NewRouter(cfg *config.Config, deps handler.Deps, rdb *redis.Client) http.Ha
 		pr.Post("/notifications/{id}/read", notificationHandler.Read)
 		pr.Post("/notifications/read-all", notificationHandler.ReadAll)
 		pr.Post("/notifications/{id}/action", notificationHandler.Action)
+		pr.Delete("/notifications/{id}", notificationHandler.Delete)
+		pr.Delete("/notifications", notificationHandler.DeleteAll)
+		pr.Get("/notifications/preferences", notificationHandler.GetPreferences)
+		pr.Patch("/notifications/preferences", notificationHandler.SetPreferences)
+		pr.Post("/notifications/push", notificationHandler.RegisterPush)
+		pr.Delete("/notifications/push", notificationHandler.UnregisterPush)
 
 		pr.Get("/tournaments/{id}/audit", auditHandler.ListTournamentAudit)
 
