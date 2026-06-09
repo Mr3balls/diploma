@@ -265,6 +265,7 @@ export type Notification = {
   title?: string | null;
   message: string;
   is_read?: boolean;
+  acted_at?: string | null;
   created_at?: string;
   payload_json?: Record<string, unknown> | null;
   action_payload_json?: Record<string, unknown> | null;

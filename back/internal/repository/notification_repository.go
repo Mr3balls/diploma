@@ -43,10 +43,20 @@ func (r *NotificationRepository) Create(ctx context.Context, n *entity.Notificat
 		return nil
 	}
 
+	// Ensure NOT NULL JSONB columns always have a valid value.
+	payload := n.PayloadJSON
+	if len(payload) == 0 {
+		payload = json.RawMessage("{}")
+	}
+	actionPayload := n.ActionPayloadJSON
+	if len(actionPayload) == 0 {
+		actionPayload = json.RawMessage("{}")
+	}
+
 	_, err := r.db.Exec(ctx, `
         INSERT INTO notifications (id, user_id, type, title, message, payload_json, action_payload_json, is_read, acted_at, read_at, deleted_at)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-    `, n.ID, n.UserID, n.Type, n.Title, n.Message, n.PayloadJSON, n.ActionPayloadJSON, n.IsRead, n.ActedAt, n.ReadAt, n.DeletedAt)
+    `, n.ID, n.UserID, n.Type, n.Title, n.Message, payload, actionPayload, n.IsRead, n.ActedAt, n.ReadAt, n.DeletedAt)
 	if err != nil {
 		return err
 	}

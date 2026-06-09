@@ -76,10 +76,12 @@ export function MapPicker({ value, onChange, height = 320 }: MapPickerProps) {
 
   return (
     <div className="grid gap-2">
-      <div
-        ref={containerRef}
-        style={{ height, borderRadius: "0.75rem", overflow: "hidden", border: "1px solid #2d2d2d" }}
-      />
+      <div style={{ isolation: "isolate", position: "relative", zIndex: 0 }}>
+        <div
+          ref={containerRef}
+          style={{ height, borderRadius: "0.75rem", overflow: "hidden", border: "1px solid #2d2d2d" }}
+        />
+      </div>
       {value ? (
         <div className="flex items-center justify-between text-xs text-[#666666]">
           <span>

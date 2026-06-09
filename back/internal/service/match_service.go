@@ -18,6 +18,7 @@ type MatchService struct {
 	brackets      *repository.BracketRepository
 	groups        *repository.GroupRepository
 	teams         *repository.TeamRepository
+	participants  *repository.ParticipantRepository
 	users         repository.UserStore
 	notifications *repository.NotificationRepository
 	audits        *repository.AuditRepository
@@ -25,8 +26,8 @@ type MatchService struct {
 	email         *EmailService
 }
 
-func NewMatchService(tournaments *TournamentService, brackets *repository.BracketRepository, groups *repository.GroupRepository, teams *repository.TeamRepository, users repository.UserStore, notifications *repository.NotificationRepository, audits *repository.AuditRepository, bracketFlow *BracketService, email *EmailService) *MatchService {
-	return &MatchService{tournaments: tournaments, brackets: brackets, groups: groups, teams: teams, users: users, notifications: notifications, audits: audits, bracketFlow: bracketFlow, email: email}
+func NewMatchService(tournaments *TournamentService, brackets *repository.BracketRepository, groups *repository.GroupRepository, teams *repository.TeamRepository, participants *repository.ParticipantRepository, users repository.UserStore, notifications *repository.NotificationRepository, audits *repository.AuditRepository, bracketFlow *BracketService, email *EmailService) *MatchService {
+	return &MatchService{tournaments: tournaments, brackets: brackets, groups: groups, teams: teams, participants: participants, users: users, notifications: notifications, audits: audits, bracketFlow: bracketFlow, email: email}
 }
 
 type ScheduleMatchInput struct {
@@ -52,14 +53,22 @@ func (s *MatchService) Schedule(ctx context.Context, actorUserID, matchID string
 	if !ok {
 		return apperror.Forbidden("insufficient tournament permissions")
 	}
+	firstSchedule := match.ScheduledAt == nil && in.ScheduledAt != nil
 	match.ScheduledAt = in.ScheduledAt
 	match.LocationOrServer = in.LocationOrServer
 	if err := s.brackets.UpdateMatchState(ctx, match); err != nil {
 		return err
 	}
-	if err := s.notifyMatchTeams(ctx, match, entity.NotificationMatchTimeChanged, notif.MatchTimeChanged); err != nil {
-		return err
+	// First time a time is set: send match_assigned so players know they have a scheduled match.
+	// Subsequent changes: send match_time_changed to indicate the time was updated.
+	notifType := entity.NotificationMatchTimeChanged
+	notifFunc := notif.MatchTimeChanged
+	if firstSchedule {
+		notifType = entity.NotificationMatchAssigned
+		notifFunc = notif.MatchAssigned
 	}
+	// Notification errors must not roll back the schedule — fire-and-forget.
+	_ = s.notifyMatchTeams(ctx, match, notifType, notifFunc)
 	if in.ScheduledAt != nil {
 		tournament, _ := s.tournaments.GetTournament(ctx, match.TournamentID)
 		go s.emailMatchTeams(match, func(email, _ string) {
@@ -146,9 +155,7 @@ func (s *MatchService) AdminSetResult(ctx context.Context, actorUserID, matchID 
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "admin_set_result", Description: "Admin directly set match result", MetadataJSON: xjson.MustMarshal(map[string]string{"winner_team_id": in.WinnerTeamID})})
-	if err := s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, notif.ResultConfirmed); err != nil {
-		return err
-	}
+	_ = s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, notif.ResultConfirmed)
 	s.sendResultConfirmedEmail(ctx, match)
 	return nil
 }
@@ -176,9 +183,7 @@ func (s *MatchService) ApproveResult(ctx context.Context, actorUserID, matchID s
 		return err
 	}
 	_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &match.TournamentID, EntityType: "match", EntityID: match.ID, ActionType: "result_approved", Description: "Match result approved", MetadataJSON: xjson.MustMarshal(map[string]string{"winner_team_id": *match.WinnerTeamID})})
-	if err := s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, notif.ResultConfirmed); err != nil {
-		return err
-	}
+	_ = s.notifyMatchTeams(ctx, match, entity.NotificationResultConfirmed, notif.ResultConfirmed)
 	s.sendResultConfirmedEmail(ctx, match)
 	return nil
 }
@@ -278,6 +283,9 @@ func (s *MatchService) notifyManagers(ctx context.Context, tournamentID, typ str
 }
 
 func (s *MatchService) notifyMatchTeams(ctx context.Context, match *entity.Match, typ string, textsFunc func(string) notif.Texts) error {
+	payload := xjson.MustMarshal(map[string]string{"match_id": match.ID, "tournament_id": match.TournamentID})
+
+	// Team-based matches.
 	for _, teamID := range []*string{match.Team1ID, match.Team2ID} {
 		if teamID == nil {
 			continue
@@ -291,12 +299,38 @@ func (s *MatchService) notifyMatchTeams(ctx context.Context, match *entity.Match
 				continue
 			}
 			texts := textsFunc(member.UserLang)
-			notification := &entity.Notification{ID: uuid.NewString(), UserID: *member.UserID, Type: typ, Title: texts.Title, Message: texts.Message, PayloadJSON: xjson.MustMarshal(map[string]string{"match_id": match.ID, "tournament_id": match.TournamentID})}
-			if err := s.notifications.Create(ctx, notification); err != nil {
+			n := &entity.Notification{ID: uuid.NewString(), UserID: *member.UserID, Type: typ, Title: texts.Title, Message: texts.Message, PayloadJSON: payload}
+			if err := s.notifications.Create(ctx, n); err != nil {
 				return err
 			}
 		}
 	}
+
+	// Individual (participant-based) matches.
+	var participantUserIDs []string
+	var participantIDs []*string
+	for _, pid := range []*string{match.Participant1ID, match.Participant2ID} {
+		if pid == nil {
+			continue
+		}
+		p, err := s.participants.GetByID(ctx, *pid)
+		if err != nil || p.UserID == nil {
+			continue
+		}
+		participantUserIDs = append(participantUserIDs, *p.UserID)
+		participantIDs = append(participantIDs, p.UserID)
+	}
+	if len(participantUserIDs) > 0 {
+		langs := s.users.GetLangsByIDs(ctx, participantUserIDs)
+		for _, userID := range participantIDs {
+			texts := textsFunc(langs[*userID])
+			n := &entity.Notification{ID: uuid.NewString(), UserID: *userID, Type: typ, Title: texts.Title, Message: texts.Message, PayloadJSON: payload}
+			if err := s.notifications.Create(ctx, n); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

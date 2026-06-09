@@ -46,9 +46,11 @@ export function MapView({ lat, lng, height = 280 }: MapViewProps) {
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ height, borderRadius: "0.75rem", overflow: "hidden", border: "1px solid #2d2d2d" }}
-    />
+    <div style={{ isolation: "isolate", position: "relative", zIndex: 0 }}>
+      <div
+        ref={containerRef}
+        style={{ height, borderRadius: "0.75rem", overflow: "hidden", border: "1px solid #2d2d2d" }}
+      />
+    </div>
   );
 }

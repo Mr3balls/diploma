@@ -106,7 +106,7 @@ export function NotificationsPage() {
     if (!memberId) { toast.error(t("notifications.noMemberId")); return; }
     try {
       await acceptMutation.mutateAsync(memberId);
-      if (!notification.is_read) await markReadMutation.mutateAsync(notification.id);
+      await actionMutation.mutateAsync({ id: notification.id });
       await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
       await queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications });
       toast.success(t("notifications.accepted"));
@@ -118,7 +118,7 @@ export function NotificationsPage() {
     if (!memberId) { toast.error(t("notifications.noMemberId")); return; }
     try {
       await declineMutation.mutateAsync(memberId);
-      if (!notification.is_read) await markReadMutation.mutateAsync(notification.id);
+      await actionMutation.mutateAsync({ id: notification.id });
       await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
       await queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications });
       toast.success(t("notifications.declined"));
@@ -133,15 +133,16 @@ export function NotificationsPage() {
   }
 
   function renderActions(notification: Notification) {
-    if (notification.type === "added_to_team") {
+    if (notification.type === "added_to_team" && !notification.acted_at) {
       const memberId = getMemberId(notification);
       if (!memberId) return null;
+      const busy = acceptMutation.isPending || declineMutation.isPending;
       return (
         <>
-          <Button size="sm" onClick={() => void handleAccept(notification)} disabled={acceptMutation.isPending}>
+          <Button size="sm" onClick={() => void handleAccept(notification)} disabled={busy}>
             {t("notifications.accept")}
           </Button>
-          <Button size="sm" variant="destructive" onClick={() => void handleDecline(notification)} disabled={declineMutation.isPending}>
+          <Button size="sm" variant="destructive" onClick={() => void handleDecline(notification)} disabled={busy}>
             {t("notifications.decline")}
           </Button>
         </>

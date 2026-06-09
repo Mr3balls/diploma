@@ -24,6 +24,7 @@ type BracketService struct {
 	groups        *repository.GroupRepository
 	teams         *repository.TeamRepository
 	participants  *repository.ParticipantRepository
+	users         repository.UserStore
 	notifications *repository.NotificationRepository
 	audits        *repository.AuditRepository
 }
@@ -35,6 +36,7 @@ func NewBracketService(
 	groups *repository.GroupRepository,
 	teams *repository.TeamRepository,
 	participants *repository.ParticipantRepository,
+	users repository.UserStore,
 	notifications *repository.NotificationRepository,
 	audits *repository.AuditRepository,
 ) *BracketService {
@@ -45,6 +47,7 @@ func NewBracketService(
 		groups:        groups,
 		teams:         teams,
 		participants:  participants,
+		users:         users,
 		notifications: notifications,
 		audits:        audits,
 	}
@@ -232,20 +235,22 @@ func (s *BracketService) Generate(
 	return storedBracket, storedMatches, nil
 }
 
-// notifyMatchAssigned sends match_assigned notifications to members of teams
-// that have an immediate match after bracket generation.
+// notifyMatchAssigned sends match_assigned notifications after bracket generation.
+// Handles both team-based and individual (participant-based) tournaments.
 func (s *BracketService) notifyMatchAssigned(tournamentID string, matches []entity.Match) {
 	ctx := context.Background()
-	seen := make(map[string]bool)
+
+	// Team-based: notify all members of teams that have a match.
+	seenTeams := make(map[string]bool)
 	for _, m := range matches {
 		if m.Team1ID == nil || m.Team2ID == nil {
 			continue
 		}
 		for _, teamID := range []string{*m.Team1ID, *m.Team2ID} {
-			if seen[teamID] {
+			if seenTeams[teamID] {
 				continue
 			}
-			seen[teamID] = true
+			seenTeams[teamID] = true
 			members, err := s.teams.ListMembersByTeamID(ctx, teamID)
 			if err != nil {
 				continue
@@ -266,6 +271,48 @@ func (s *BracketService) notifyMatchAssigned(tournamentID string, matches []enti
 				})
 			}
 		}
+	}
+
+	// Individual: notify participants that have a match (both sides set).
+	type participantNotif struct {
+		matchID string
+		userID  string
+	}
+	seenParticipants := make(map[string]bool)
+	var toNotify []participantNotif
+	var userIDs []string
+	for _, m := range matches {
+		if m.Participant1ID == nil || m.Participant2ID == nil {
+			continue
+		}
+		for _, pid := range []string{*m.Participant1ID, *m.Participant2ID} {
+			if seenParticipants[pid] {
+				continue
+			}
+			seenParticipants[pid] = true
+			p, err := s.participants.GetByID(ctx, pid)
+			if err != nil || p.UserID == nil {
+				continue
+			}
+			toNotify = append(toNotify, participantNotif{matchID: m.ID, userID: *p.UserID})
+			userIDs = append(userIDs, *p.UserID)
+		}
+	}
+	if len(toNotify) == 0 {
+		return
+	}
+	langs := s.users.GetLangsByIDs(ctx, userIDs)
+	for _, n := range toNotify {
+		texts := notif.MatchAssigned(langs[n.userID])
+		payload := xjson.MustMarshal(map[string]string{"match_id": n.matchID, "tournament_id": tournamentID})
+		_ = s.notifications.Create(ctx, &entity.Notification{
+			ID:          uuid.NewString(),
+			UserID:      n.userID,
+			Type:        entity.NotificationMatchAssigned,
+			Title:       texts.Title,
+			Message:     texts.Message,
+			PayloadJSON: payload,
+		})
 	}
 }
 
