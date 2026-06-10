@@ -16,7 +16,7 @@ export const registerSchema = z.object({
     .string()
     .min(1, "Введите телефон")
     .regex(/^(\+7|8)\d{10}$/, "Формат: +7XXXXXXXXXX или 8XXXXXXXXXX (10 цифр после кода)"),
-  password: z.string().min(6, "Минимум 6 символов"),
+  password: z.string().min(8, "Минимум 8 символов"),
 });
 
 export type RegisterRequest = z.infer<typeof registerSchema>;
@@ -29,7 +29,7 @@ export type ForgotPasswordRequest = z.infer<typeof forgotPasswordSchema>;
 
 export const resetPasswordSchema = z.object({
   token: z.string().min(1, "Введите токен"),
-  password: z.string().min(6, "Минимум 6 символов"),
+  password: z.string().min(8, "Минимум 8 символов"),
 });
 
 export type ResetPasswordRequest = z.infer<typeof resetPasswordSchema>;
