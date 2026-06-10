@@ -3,10 +3,7 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Runs DB migrations before each new deployment goes live.
-# If migrations fail, the deployment is cancelled automatically.
-releaseCommand = "/app/migrate -path /app/migrations -database $DATABASE_URL up"
-startCommand = "/app/esports-api"
+startCommand = "/app/migrate -path /app/migrations -database $DATABASE_URL up && /app/esports-api"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
