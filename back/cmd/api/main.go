@@ -78,11 +78,11 @@ func main() {
 	invitesRepo := repository.NewCoOrganizerInviteRepository(pg)
 
 	var emailSender *email.Sender
-	if cfg.SMTPHost != "" && cfg.SMTPUser != "" && cfg.SMTPPassword != "" {
-		emailSender = email.NewSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom)
-		log.Printf("email notifications enabled (SMTP: %s:%s)", cfg.SMTPHost, cfg.SMTPPort)
+	if cfg.ResendAPIKey != "" {
+		emailSender = email.NewSender(cfg.ResendAPIKey, cfg.EmailFrom)
+		log.Printf("email notifications enabled (Resend, from: %s)", cfg.EmailFrom)
 	} else {
-		log.Println("email notifications disabled (SMTP not configured)")
+		log.Println("email notifications disabled (RESEND_API_KEY not configured)")
 	}
 	emailService := service.NewEmailService(emailSender)
 

@@ -1,30 +1,49 @@
 package email
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"net/smtp"
+	"net/http"
 )
 
-// Sender sends emails via SMTP (Gmail port 587 / STARTTLS).
 type Sender struct {
-	host     string
-	port     string
-	username string
-	password string
-	from     string
+	apiKey string
+	from   string
 }
 
-func NewSender(host, port, username, password, from string) *Sender {
-	return &Sender{host: host, port: port, username: username, password: password, from: from}
+func NewSender(apiKey, from string) *Sender {
+	return &Sender{apiKey: apiKey, from: from}
 }
 
 func (s *Sender) Send(to, subject, htmlBody string) error {
-	auth := smtp.PlainAuth("", s.username, s.password, s.host)
+	payload := map[string]any{
+		"from":    s.from,
+		"to":      []string{to},
+		"subject": subject,
+		"html":    htmlBody,
+	}
 
-	msg := fmt.Sprintf(
-		"From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
-		s.from, to, subject, htmlBody,
-	)
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
 
-	return smtp.SendMail(s.host+":"+s.port, auth, s.from, []string{to}, []byte(msg))
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("resend API error: status %d", resp.StatusCode)
+	}
+	return nil
 }
