@@ -26,7 +26,6 @@ func (s *EmailService) send(to, subject, body string) {
 	}
 }
 
-// SendPasswordReset sends a password-reset link to the user.
 func (s *EmailService) SendPasswordReset(to, resetURL string) {
 	if !s.enabled() {
 		return
@@ -45,7 +44,23 @@ func (s *EmailService) SendPasswordReset(to, resetURL string) {
 	s.send(to, subject, body)
 }
 
-// SendTeamInvite notifies a player they were added to a team.
+func (s *EmailService) SendWelcome(to, firstName string) {
+	if !s.enabled() {
+		return
+	}
+	subject := "Добро пожаловать в ACE Tournament!"
+	body := layout("Добро пожаловать!", fmt.Sprintf(`
+		<p>Привет, <strong>%s</strong>!</p>
+		<p>Ваш аккаунт успешно создан. Теперь вы можете участвовать в турнирах, создавать команды и следить за результатами.</p>
+		<p style="margin:24px 0;">
+			<a href="#" style="display:inline-block;background:#ff5500;color:#ffffff;padding:12px 28px;border-radius:8px;font-weight:bold;text-decoration:none;">
+				Перейти на платформу
+			</a>
+		</p>
+	`, firstName))
+	s.send(to, subject, body)
+}
+
 func (s *EmailService) SendTeamInvite(to, teamName, tournamentTitle string) {
 	if !s.enabled() {
 		return
@@ -58,7 +73,30 @@ func (s *EmailService) SendTeamInvite(to, teamName, tournamentTitle string) {
 	s.send(to, subject, body)
 }
 
-// SendMatchScheduled notifies a player about a scheduled match.
+func (s *EmailService) SendTeamParticipationConfirmed(to, teamName, tournamentTitle string) {
+	if !s.enabled() {
+		return
+	}
+	subject := fmt.Sprintf("Участие в команде «%s» подтверждено — ACE Tournament", teamName)
+	body := layout("Участие подтверждено", fmt.Sprintf(`
+		<p>Вы подтвердили участие в команде <strong>%s</strong> на турнире <strong>%s</strong>.</p>
+		<p>Следите за расписанием матчей в личном кабинете.</p>
+	`, teamName, tournamentTitle))
+	s.send(to, subject, body)
+}
+
+func (s *EmailService) SendTeamParticipationDeclined(to, teamName, tournamentTitle string) {
+	if !s.enabled() {
+		return
+	}
+	subject := fmt.Sprintf("Вы отказались от участия в команде «%s» — ACE Tournament", teamName)
+	body := layout("Участие отклонено", fmt.Sprintf(`
+		<p>Вы отказались от участия в команде <strong>%s</strong> на турнире <strong>%s</strong>.</p>
+		<p>Если это произошло по ошибке — свяжитесь с капитаном команды.</p>
+	`, teamName, tournamentTitle))
+	s.send(to, subject, body)
+}
+
 func (s *EmailService) SendMatchScheduled(to, tournamentTitle string, scheduledAt time.Time, location string) {
 	if !s.enabled() {
 		return
@@ -77,7 +115,30 @@ func (s *EmailService) SendMatchScheduled(to, tournamentTitle string, scheduledA
 	s.send(to, subject, body)
 }
 
-// SendResultConfirmed notifies team members that their match result was confirmed.
+func (s *EmailService) SendMatchRescheduled(to, tournamentTitle string) {
+	if !s.enabled() {
+		return
+	}
+	subject := fmt.Sprintf("Запрос на перенос матча — %s", tournamentTitle)
+	body := layout("Перенос матча", fmt.Sprintf(`
+		<p>Один из участников вашего матча в турнире <strong>%s</strong> запросил перенос.</p>
+		<p>Войдите на платформу, чтобы подтвердить или отклонить перенос.</p>
+	`, tournamentTitle))
+	s.send(to, subject, body)
+}
+
+func (s *EmailService) SendMatchCancelled(to, tournamentTitle string) {
+	if !s.enabled() {
+		return
+	}
+	subject := fmt.Sprintf("Матч отменён — %s", tournamentTitle)
+	body := layout("Матч отменён", fmt.Sprintf(`
+		<p>Ваш матч в турнире <strong>%s</strong> был отменён в связи с возникшей проблемой.</p>
+		<p>Обратитесь к организатору турнира для уточнения деталей.</p>
+	`, tournamentTitle))
+	s.send(to, subject, body)
+}
+
 func (s *EmailService) SendResultConfirmed(to, tournamentTitle, winnerTeamName string) {
 	if !s.enabled() {
 		return
@@ -91,7 +152,19 @@ func (s *EmailService) SendResultConfirmed(to, tournamentTitle, winnerTeamName s
 	s.send(to, subject, body)
 }
 
-// layout wraps content in a minimal branded HTML email.
+func (s *EmailService) SendTournamentFinished(to, tournamentTitle, winnerName string) {
+	if !s.enabled() {
+		return
+	}
+	subject := fmt.Sprintf("Турнир завершён — %s", tournamentTitle)
+	body := layout("Турнир завершён", fmt.Sprintf(`
+		<p>Турнир <strong>%s</strong> завершён!</p>
+		<p>Победитель: <strong>%s</strong></p>
+		<p style="color:#90b8ff;">Откройте платформу, чтобы посмотреть итоговую статистику и результаты.</p>
+	`, tournamentTitle, winnerName))
+	s.send(to, subject, body)
+}
+
 func layout(title, content string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="ru">

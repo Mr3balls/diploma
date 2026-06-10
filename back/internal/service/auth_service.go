@@ -83,6 +83,8 @@ func (s *AuthService) Register(ctx context.Context, in RegisterInput, userAgent,
 		return nil, nil, err
 	}
 
+	go s.email.SendWelcome(user.Email, user.FirstName)
+
 	// Link any pending team memberships created before this user registered
 	if s.teams != nil && s.notifications != nil {
 		if pending, err := s.teams.FindPendingByEmail(ctx, user.Email); err == nil {

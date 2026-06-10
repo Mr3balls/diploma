@@ -27,6 +27,7 @@ type BracketService struct {
 	users         repository.UserStore
 	notifications *repository.NotificationRepository
 	audits        *repository.AuditRepository
+	email         *EmailService
 }
 
 func NewBracketService(
@@ -39,6 +40,7 @@ func NewBracketService(
 	users repository.UserStore,
 	notifications *repository.NotificationRepository,
 	audits *repository.AuditRepository,
+	email *EmailService,
 ) *BracketService {
 	return &BracketService{
 		pool:          pool,
@@ -50,6 +52,7 @@ func NewBracketService(
 		users:         users,
 		notifications: notifications,
 		audits:        audits,
+		email:         email,
 	}
 }
 
@@ -971,6 +974,18 @@ func (s *BracketService) finishTournament(ctx context.Context, tournamentID stri
 	_ = s.tournaments.tournaments.SetStatus(ctx, tournamentID, entity.TournamentStatusFinished)
 	_ = s.tournaments.tournaments.SetWinner(ctx, tournamentID, winnerTeamID, winnerParticipantID)
 
+	tournament, _ := s.tournaments.GetTournament(ctx, tournamentID)
+	tournamentTitle := ""
+	if tournament != nil {
+		tournamentTitle = tournament.Title
+	}
+	winnerName := ""
+	if winnerTeamID != nil {
+		if team, err := s.teams.GetTeamByID(ctx, *winnerTeamID); err == nil {
+			winnerName = team.Name
+		}
+	}
+
 	teams, _ := s.teams.ListByTournament(ctx, tournamentID, true)
 	for _, team := range teams {
 		members, _ := s.teams.ListMembersByTeamID(ctx, team.ID)
@@ -987,6 +1002,9 @@ func (s *BracketService) finishTournament(ctx context.Context, tournamentID stri
 						"tournament_id": tournamentID,
 					}),
 				})
+				if user, err := s.users.GetByID(ctx, *member.UserID); err == nil {
+					go s.email.SendTournamentFinished(user.Email, tournamentTitle, winnerName)
+				}
 			}
 		}
 	}

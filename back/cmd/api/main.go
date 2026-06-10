@@ -94,7 +94,7 @@ func main() {
 	importService := service.NewImportService(tournamentService, importRepo, teamRepo, userRepo, notificationRepo, auditRepo, sheetsReader, emailService)
 	pushService := service.NewPushService(pushSubRepo, cfg.VAPIDPrivateKey, cfg.VAPIDPublicKey, cfg.VAPIDEmail)
 	notificationService := service.NewNotificationService(notificationRepo, userRepo, pushService)
-	bracketService := service.NewBracketService(pg, tournamentService, bracketRepo, groupRepo, teamRepo, participantRepo, userRepo, notificationRepo, auditRepo)
+	bracketService := service.NewBracketService(pg, tournamentService, bracketRepo, groupRepo, teamRepo, participantRepo, userRepo, notificationRepo, auditRepo, emailService)
 	matchService := service.NewMatchService(tournamentService, bracketRepo, groupRepo, teamRepo, participantRepo, userRepo, notificationRepo, auditRepo, bracketService, emailService)
 	teamService := service.NewTeamService(tournamentService, teamRepo, userRepo, notificationRepo, auditRepo, emailService)
 	auditService := service.NewAuditService(tournamentService, auditRepo)

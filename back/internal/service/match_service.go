@@ -91,11 +91,37 @@ func (s *MatchService) ConfirmReady(ctx context.Context, actorUserID, matchID st
 }
 
 func (s *MatchService) RequestReschedule(ctx context.Context, actorUserID, matchID string) error {
-	return s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationRescheduleRequested, entity.MatchStatusRescheduleRequested, entity.NotificationMatchRescheduled, notif.MatchRescheduled)
+	if err := s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationRescheduleRequested, entity.MatchStatusRescheduleRequested, entity.NotificationMatchRescheduled, notif.MatchRescheduled); err != nil {
+		return err
+	}
+	if match, err := s.brackets.GetMatchByID(ctx, matchID); err == nil {
+		tournament, _ := s.tournaments.GetTournament(ctx, match.TournamentID)
+		title := ""
+		if tournament != nil {
+			title = tournament.Title
+		}
+		go s.emailMatchTeams(match, func(email, _ string) {
+			s.email.SendMatchRescheduled(email, title)
+		})
+	}
+	return nil
 }
 
 func (s *MatchService) ReportIssue(ctx context.Context, actorUserID, matchID string) error {
-	return s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationIssueReported, entity.MatchStatusIssueReported, entity.NotificationMatchCancelled, notif.MatchCancelled)
+	if err := s.updateTeamConfirmation(ctx, actorUserID, matchID, entity.MatchTeamConfirmationIssueReported, entity.MatchStatusIssueReported, entity.NotificationMatchCancelled, notif.MatchCancelled); err != nil {
+		return err
+	}
+	if match, err := s.brackets.GetMatchByID(ctx, matchID); err == nil {
+		tournament, _ := s.tournaments.GetTournament(ctx, match.TournamentID)
+		title := ""
+		if tournament != nil {
+			title = tournament.Title
+		}
+		go s.emailMatchTeams(match, func(email, _ string) {
+			s.email.SendMatchCancelled(email, title)
+		})
+	}
+	return nil
 }
 
 func (s *MatchService) SubmitResult(ctx context.Context, actorUserID, matchID string, in SubmitResultInput) error {

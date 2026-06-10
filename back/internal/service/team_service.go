@@ -483,6 +483,14 @@ func (s *TeamService) AcceptMembership(ctx context.Context, actorUserID, memberI
 			_ = s.teams.SetApproval(ctx, team.ID, entity.TeamStatusReadyForReview, team.ApprovedByManager)
 		}
 		_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &team.TournamentID, EntityType: "team_member", EntityID: memberID, ActionType: "team_member_accepted", Description: "Team participation confirmed", MetadataJSON: xjson.MustMarshal(map[string]string{"member_id": memberID})})
+		if user, err := s.users.GetByID(ctx, actorUserID); err == nil {
+			tournament, _ := s.tournaments.GetTournament(ctx, team.TournamentID)
+			title := ""
+			if tournament != nil {
+				title = tournament.Title
+			}
+			go s.email.SendTeamParticipationConfirmed(user.Email, team.Name, title)
+		}
 	}
 	return nil
 }
@@ -502,6 +510,14 @@ func (s *TeamService) DeclineMembership(ctx context.Context, actorUserID, member
 	if err == nil {
 		_ = s.teams.SetApproval(ctx, team.ID, entity.TeamStatusAwaitingConfirmation, team.ApprovedByManager)
 		_ = s.audits.Create(ctx, &entity.AuditLog{ID: uuid.NewString(), ActorUserID: &actorUserID, TournamentID: &team.TournamentID, EntityType: "team_member", EntityID: memberID, ActionType: "team_member_declined", Description: "Team participation declined", MetadataJSON: xjson.MustMarshal(map[string]string{"member_id": memberID})})
+		if user, err := s.users.GetByID(ctx, actorUserID); err == nil {
+			tournament, _ := s.tournaments.GetTournament(ctx, team.TournamentID)
+			title := ""
+			if tournament != nil {
+				title = tournament.Title
+			}
+			go s.email.SendTeamParticipationDeclined(user.Email, team.Name, title)
+		}
 	}
 	return nil
 }
