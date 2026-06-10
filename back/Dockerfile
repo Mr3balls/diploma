@@ -18,4 +18,4 @@ COPY migrations /app/migrations
 COPY credentials/ /app/credentials/
 USER app
 EXPOSE 8080
-CMD ["/app/esports-api"]
+CMD ["/bin/sh", "-c", "/app/migrate -path /app/migrations -database \"$DATABASE_URL\" up && /app/esports-api"]
