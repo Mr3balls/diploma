@@ -22,8 +22,9 @@ type Config struct {
 	GoogleServiceAccountFile string
 	GoogleDefaultWorksheet   string
 	AuthRateLimitPerMinute   int
-	ResendAPIKey             string
-	EmailFrom                string
+	BrevoAPIKey              string
+	EmailFromAddress         string
+	EmailFromName            string
 	VAPIDPublicKey           string
 	VAPIDPrivateKey          string
 	VAPIDEmail               string
@@ -45,8 +46,9 @@ func Load() (*Config, error) {
 		GoogleServiceAccountFile: getEnvAllowEmpty("GOOGLE_SERVICE_ACCOUNT_FILE", "./credentials/google-service-account.json"),
 		GoogleDefaultWorksheet:   getEnv("GOOGLE_DEFAULT_WORKSHEET", "Sheet1"),
 		AuthRateLimitPerMinute:   getInt("AUTH_RATE_LIMIT_PER_MINUTE", 30),
-		ResendAPIKey:             getEnvAllowEmpty("RESEND_API_KEY", ""),
-		EmailFrom:                getEnvAllowEmpty("EMAIL_FROM", "ACE Tournament <onboarding@resend.dev>"),
+		BrevoAPIKey:              getEnvAllowEmpty("BREVO_API_KEY", ""),
+		EmailFromAddress:         getEnvAllowEmpty("EMAIL_FROM_ADDRESS", "gulyachinaalan@gmail.com"),
+		EmailFromName:            getEnvAllowEmpty("EMAIL_FROM_NAME", "ACE Tournament"),
 		VAPIDPublicKey:           getEnvAllowEmpty("VAPID_PUBLIC_KEY", ""),
 		VAPIDPrivateKey:          getEnvAllowEmpty("VAPID_PRIVATE_KEY", ""),
 		VAPIDEmail:               getEnvAllowEmpty("VAPID_EMAIL", ""),

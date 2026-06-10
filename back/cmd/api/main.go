@@ -78,11 +78,11 @@ func main() {
 	invitesRepo := repository.NewCoOrganizerInviteRepository(pg)
 
 	var emailSender *email.Sender
-	if cfg.ResendAPIKey != "" {
-		emailSender = email.NewSender(cfg.ResendAPIKey, cfg.EmailFrom)
-		log.Printf("email notifications enabled (Resend, from: %s)", cfg.EmailFrom)
+	if cfg.BrevoAPIKey != "" {
+		emailSender = email.NewSender(cfg.BrevoAPIKey, cfg.EmailFromAddress, cfg.EmailFromName)
+		log.Printf("email notifications enabled (Brevo, from: %s <%s>)", cfg.EmailFromName, cfg.EmailFromAddress)
 	} else {
-		log.Println("email notifications disabled (RESEND_API_KEY not configured)")
+		log.Println("email notifications disabled (BREVO_API_KEY not configured)")
 	}
 	emailService := service.NewEmailService(emailSender)
 

@@ -8,20 +8,21 @@ import (
 )
 
 type Sender struct {
-	apiKey string
-	from   string
+	apiKey    string
+	fromName  string
+	fromEmail string
 }
 
-func NewSender(apiKey, from string) *Sender {
-	return &Sender{apiKey: apiKey, from: from}
+func NewSender(apiKey, fromEmail, fromName string) *Sender {
+	return &Sender{apiKey: apiKey, fromEmail: fromEmail, fromName: fromName}
 }
 
 func (s *Sender) Send(to, subject, htmlBody string) error {
 	payload := map[string]any{
-		"from":    s.from,
-		"to":      []string{to},
-		"subject": subject,
-		"html":    htmlBody,
+		"sender":      map[string]string{"name": s.fromName, "email": s.fromEmail},
+		"to":          []map[string]string{{"email": to}},
+		"subject":     subject,
+		"htmlContent": htmlBody,
 	}
 
 	body, err := json.Marshal(payload)
@@ -29,11 +30,11 @@ func (s *Sender) Send(to, subject, htmlBody string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", "https://api.brevo.com/v3/smtp/email", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	req.Header.Set("api-key", s.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -43,7 +44,7 @@ func (s *Sender) Send(to, subject, htmlBody string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("resend API error: status %d", resp.StatusCode)
+		return fmt.Errorf("brevo API error: status %d", resp.StatusCode)
 	}
 	return nil
 }
