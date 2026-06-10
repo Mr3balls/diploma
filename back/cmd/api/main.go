@@ -86,8 +86,10 @@ func main() {
 	}
 	emailService := service.NewEmailService(emailSender)
 
+	passwordResetRepo := repository.NewPasswordResetRepository(pg)
+
 	tournamentService := service.NewTournamentService(tournamentRepo, teamRepo, bracketRepo, auditRepo)
-	authService := service.NewAuthService(cfg, userRepo, sessionRepo, auditRepo, emailService, teamRepo, notificationRepo)
+	authService := service.NewAuthService(cfg, userRepo, sessionRepo, auditRepo, emailService, teamRepo, notificationRepo, passwordResetRepo)
 	userService := service.NewUserService(userRepo)
 	importService := service.NewImportService(tournamentService, importRepo, teamRepo, userRepo, notificationRepo, auditRepo, sheetsReader, emailService)
 	pushService := service.NewPushService(pushSubRepo, cfg.VAPIDPrivateKey, cfg.VAPIDPublicKey, cfg.VAPIDEmail)

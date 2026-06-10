@@ -33,8 +33,8 @@ type forgotPasswordRequest struct {
 }
 
 type resetPasswordRequest struct {
-	Token       string `json:"token" validate:"required"`
-	NewPassword string `json:"new_password" validate:"required,min=8,max=128"`
+	Token    string `json:"token"    validate:"required"`
+	Password string `json:"password" validate:"required,min=6,max=128"`
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -125,7 +125,11 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, h.deps.Auth.ResetPassword(r.Context(), req.Token, req.NewPassword))
+	if err := h.deps.Auth.ResetPassword(r.Context(), req.Token, req.Password); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Пароль успешно изменён."})
 }
 
 func mustUserID(r *http.Request) string {

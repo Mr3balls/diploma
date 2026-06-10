@@ -25,10 +25,11 @@ type AuthService struct {
 	email         *EmailService
 	teams         *repository.TeamRepository
 	notifications *repository.NotificationRepository
+	resetTokens   *repository.PasswordResetRepository
 }
 
-func NewAuthService(cfg *config.Config, users repository.UserStore, sessions repository.SessionStore, audit repository.AuditStore, email *EmailService, teams *repository.TeamRepository, notifications *repository.NotificationRepository) *AuthService {
-	return &AuthService{cfg: cfg, users: users, sessions: sessions, audit: audit, email: email, teams: teams, notifications: notifications}
+func NewAuthService(cfg *config.Config, users repository.UserStore, sessions repository.SessionStore, audit repository.AuditStore, email *EmailService, teams *repository.TeamRepository, notifications *repository.NotificationRepository, resetTokens *repository.PasswordResetRepository) *AuthService {
+	return &AuthService{cfg: cfg, users: users, sessions: sessions, audit: audit, email: email, teams: teams, notifications: notifications, resetTokens: resetTokens}
 }
 
 type RegisterInput struct {
@@ -166,21 +167,59 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error 
 	return s.sessions.RevokeByHash(ctx, tok.HashRefreshToken(rawRefreshToken))
 }
 
-func (s *AuthService) ForgotPassword(_ context.Context, userEmail string) map[string]string {
-	token := s.cfg.PasswordResetDemoToken
-	go s.email.SendPasswordReset(userEmail, token)
-	return map[string]string{"message": "Если аккаунт с таким email существует, письмо со сбросом пароля отправлено."}
+func (s *AuthService) ForgotPassword(ctx context.Context, userEmail string) map[string]string {
+	// Always return the same message to prevent email enumeration.
+	resp := map[string]string{"message": "Если аккаунт с таким email существует, письмо со сбросом пароля отправлено."}
+
+	user, err := s.users.GetByEmail(ctx, userEmail)
+	if err != nil {
+		return resp
+	}
+
+	rawToken, tokenHash, err := tok.GenerateOpaqueRefreshToken()
+	if err != nil {
+		return resp
+	}
+
+	resetToken := &entity.PasswordResetToken{
+		ID:        uuid.NewString(),
+		UserID:    user.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: time.Now().Add(30 * time.Minute),
+	}
+	if err := s.resetTokens.Create(ctx, resetToken); err != nil {
+		return resp
+	}
+
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.cfg.FrontendURL, rawToken)
+	go s.email.SendPasswordReset(userEmail, resetURL)
+	return resp
 }
 
-func (s *AuthService) ResetPassword(_ context.Context, token string, _ string) map[string]string {
-	status := "accepted_for_demo"
-	if token != s.cfg.PasswordResetDemoToken {
-		status = "ignored_invalid_demo_token"
+func (s *AuthService) ResetPassword(ctx context.Context, rawToken, newPassword string) error {
+	if len(newPassword) < 8 {
+		return apperror.BadRequest("weak_password", "password must be at least 8 characters", nil)
 	}
-	return map[string]string{
-		"message": "Demo mode: reset password endpoint is stubbed for MVP.",
-		"status":  status,
+
+	tokenHash := tok.HashRefreshToken(rawToken)
+	resetToken, err := s.resetTokens.GetActiveByHash(ctx, tokenHash)
+	if err != nil {
+		return apperror.BadRequest("invalid_token", "token is invalid or expired", nil)
 	}
+
+	hash, err := password.Hash(newPassword)
+	if err != nil {
+		return err
+	}
+	if err := s.users.UpdatePassword(ctx, resetToken.UserID, hash); err != nil {
+		return err
+	}
+	if err := s.resetTokens.MarkUsed(ctx, resetToken.ID); err != nil {
+		return err
+	}
+	// Revoke all active sessions so the old password can't be reused via refresh tokens.
+	_ = s.sessions.RevokeByUserID(ctx, resetToken.UserID)
+	return nil
 }
 
 func (s *AuthService) issueTokens(ctx context.Context, user *entity.User, userAgent, ipAddress *string) (*entity.TokenPair, error) {

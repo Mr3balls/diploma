@@ -27,16 +27,21 @@ func (s *EmailService) send(to, subject, body string) {
 }
 
 // SendPasswordReset sends a password-reset link to the user.
-func (s *EmailService) SendPasswordReset(to, token string) {
+func (s *EmailService) SendPasswordReset(to, resetURL string) {
 	if !s.enabled() {
 		return
 	}
 	subject := "Сброс пароля — ACE Tournament"
 	body := layout("Сброс пароля", fmt.Sprintf(`
-		<p>Вы запросили сброс пароля. Используйте токен ниже на странице сброса пароля:</p>
-		<p style="font-size:24px;font-weight:bold;letter-spacing:4px;color:#2255ff;">%s</p>
-		<p style="color:#90b8ff;">Токен действителен 30 минут. Если вы не запрашивали сброс — проигнорируйте это письмо.</p>
-	`, token))
+		<p>Вы запросили сброс пароля. Нажмите кнопку ниже, чтобы создать новый пароль:</p>
+		<p style="margin:24px 0;">
+			<a href="%s" style="display:inline-block;background:#ff5500;color:#ffffff;padding:12px 28px;border-radius:8px;font-weight:bold;text-decoration:none;">
+				Сбросить пароль
+			</a>
+		</p>
+		<p style="color:#90b8ff;font-size:13px;">Ссылка действительна 30 минут. Если вы не запрашивали сброс — проигнорируйте это письмо.</p>
+		<p style="color:#4a6fa8;font-size:11px;word-break:break-all;">Или перейдите по ссылке: %s</p>
+	`, resetURL, resetURL))
 	s.send(to, subject, body)
 }
 

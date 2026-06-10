@@ -220,9 +220,7 @@ export function NotificationsPage() {
                       onChange={() => toggleType(type)}
                       className="accent-[#ff5500]"
                     />
-                    {t(`matchStatus.${type}` as Parameters<typeof t>[0]) !== `matchStatus.${type}`
-                      ? t(`matchStatus.${type}` as Parameters<typeof t>[0])
-                      : type}
+                    {t(`notifType.${type}` as Parameters<typeof t>[0])}
                   </label>
                 );
               })}

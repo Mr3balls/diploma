@@ -64,6 +64,14 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, u *entity.User) erro
 	return err
 }
 
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE users SET password_hash=$2, updated_at=now() WHERE id=$1 AND deleted_at IS NULL`,
+		userID, passwordHash,
+	)
+	return err
+}
+
 func (r *UserRepository) GetLangsByIDs(ctx context.Context, ids []string) map[string]string {
 	result := make(map[string]string, len(ids))
 	if len(ids) == 0 {

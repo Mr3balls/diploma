@@ -12,10 +12,10 @@ import (
 type Config struct {
 	AppEnv                   string
 	HTTPPort                 string
+	FrontendURL              string
 	AccessTokenSecret        string
 	AccessTokenTTL           time.Duration
 	RefreshTokenTTL          time.Duration
-	PasswordResetDemoToken   string
 	DatabaseURL              string
 	RedisURL                 string
 	AllowedOrigins           string
@@ -41,7 +41,7 @@ func Load() (*Config, error) {
 		AccessTokenSecret:        getEnv("ACCESS_TOKEN_SECRET", "change-me-super-secret"),
 		AccessTokenTTL:           getDuration("ACCESS_TOKEN_TTL", "15m"),
 		RefreshTokenTTL:          getDuration("REFRESH_TOKEN_TTL", "720h"),
-		PasswordResetDemoToken:   getEnv("PASSWORD_RESET_DEMO_TOKEN", "demo-reset-token"),
+		FrontendURL:              getEnv("FRONTEND_URL", "http://localhost:5173"),
 		DatabaseURL:              getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/esports?sslmode=disable"),
 		RedisURL:                 getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		AllowedOrigins:           getEnv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173"),

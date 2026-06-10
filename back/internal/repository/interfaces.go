@@ -43,6 +43,7 @@ type UserStore interface {
 	GetByNickname(ctx context.Context, nickname string) (*entity.User, error)
 	GetByID(ctx context.Context, id string) (*entity.User, error)
 	UpdateProfile(ctx context.Context, u *entity.User) error
+	UpdatePassword(ctx context.Context, userID, passwordHash string) error
 	SoftDelete(ctx context.Context, id string) error
 	AssignPlatformRole(ctx context.Context, userID, roleCode string) error
 	GetPlatformRoles(ctx context.Context, userID string) ([]string, error)
@@ -54,4 +55,5 @@ type SessionStore interface {
 	Create(ctx context.Context, s *entity.AuthSession) error
 	GetActiveByHash(ctx context.Context, hash string) (*entity.AuthSession, error)
 	RevokeByHash(ctx context.Context, hash string) error
+	RevokeByUserID(ctx context.Context, userID string) error
 }
