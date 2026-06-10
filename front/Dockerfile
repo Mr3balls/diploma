@@ -1,7 +1,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci && chmod -R +x node_modules/.bin
+RUN npm ci
 COPY . .
 # VITE_API_BASE_URL is injected at build time via Railway build variables
 RUN npm run build
